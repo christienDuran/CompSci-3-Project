@@ -1,4 +1,4 @@
-package org.example
+
 
 import java.sql.SQLOutput;
 import java.util.Scanner;
@@ -20,7 +20,7 @@ public class Questionnaire {
         }
     }
 
-    public Event createEvent(){
+    public QuestionnaireEvent createEvent(){
         System.out.println(" Enter event details: ");
 
         System.out.println("\n Title :");
@@ -35,16 +35,16 @@ public class Questionnaire {
         System.out.println("\n Recurrence daily/weekly/monthly:  ");
         String recurrence = userInput.nextLine();
 
-        return new Event(title, day, time, recurrence);
+        return new QuestionnaireEvent(title, day, time, recurrence);
 
 
     }
 
-    public ArrayList<Event> run(){ // run is a method name "ArrayList<Event>" , return a list of Event objects
-        ArraList<Event>recurrEvents = new ArrayList<Event>(); // prepares an empty container to store recurring events
+    public ArrayList<QuestionnaireEvent> run(){ // run is a method name "ArrayList<Event>" , return a list of Event objects
+        ArrayList<QuestionnaireEvent> recurrEvents = new ArrayList<QuestionnaireEvent>(); // prepares an empty container to store recurring events
 
         if(askRecurring()){
-            Event event = createEvent(); // creates a new event from gathering (Title, Day, Time, when event recurs
+            QuestionnaireEvent event = createEvent(); // creates a new event from gathering (Title, Day, Time, when event recurs
             recurrEvents.add(event);  // adds to the empty Questionnaire list, that will add to out "main" event class,
         }else {                         // which will then be displayed to the user's calendar
             System.out.println(" Skipped Questionnaire");
