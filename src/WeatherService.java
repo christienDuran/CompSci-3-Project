@@ -1,3 +1,6 @@
+/*
+Interfaces with weather API and stores forcast information for display.
+ */
 public class WeatherService {
 
     double longitude;  // variables for location can be changed

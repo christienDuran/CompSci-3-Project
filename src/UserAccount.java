@@ -1,3 +1,6 @@
+/*
+Class that represents a single user of the program, stores login information.
+ */
 public class UserAccount {
 
     // Fields
