@@ -8,6 +8,12 @@
 //  within their CalendarBook
 
 
+import java.util.Random;
+import java.security.MessageDigest; // help with keeping a user's password secure(Figure out how to use)
+import java.io.FileWriter;
+import java.io.IOException;
+import de.siegmar.fastcsv.writer.CsvWriter; // need import in order to write into a csv file
+
 
 public class UserAccount {
 
@@ -52,6 +58,24 @@ public class UserAccount {
         }
     }
 
+
+    //Saving the user's credentials to a csv file
+    public void saveToCSV(){
+
+        CsvWriter CsvWriterBuilder = null;
+        try (FileWriter fileWriter = new FileWriter("output.csv");
+             CsvWriter csvWriter = CsvWriterBuilder.builder().build(fileWriter)) {
+
+            csvWriter.writeRecord(username, password, "City");
+
+        }
+    }
+
+
+}
+
+
+
     // Getters (might use for something)
     public String getUsername() {
         return username;
@@ -62,8 +86,6 @@ public class UserAccount {
     }
 
 
-    public class Main {
-        public static void main(String[] args) {
 
 
         }
