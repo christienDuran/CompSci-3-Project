@@ -1,5 +1,7 @@
-
-
+/*
+Reminders are notifications that pop up to the user to remind them of important events. Reminders are created by the
+CalendarBook and associated with an Event. They are displayed by the UI.
+ */
 public class Reminder {
 
 
