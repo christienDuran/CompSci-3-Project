@@ -18,14 +18,14 @@ public class UserAccount {
     // Fields
     private String username;
     private String password;
-    private int accountID;           // This will be randomly generated and not provided by the User
+     private int accountID;           // This will be randomly generated and not provided by the User
     private boolean isLoggedIn;
 
     // Constructor
     public UserAccount(String username, String password, int accountID) {
         this.username = username;
         this.password = password;  // Security vulnerability
-        this.accountID = accountID;
+         this.accountID = accountID;
         this.isLoggedIn = false;
     }
 
@@ -90,6 +90,10 @@ public class UserAccount {
 
 
 }
+
+
+
+
 
 
 

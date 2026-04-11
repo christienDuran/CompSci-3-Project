@@ -1,3 +1,6 @@
+
+
+
 public class WeatherService {
 
     double longitude;  // variables for location can be changed
