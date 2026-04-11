@@ -1,3 +1,8 @@
+/*
+For creating Budgets that will display in the calendar as progress bars. Has a max value, a current value, and a name.
+The current value can be incremented by any amount but stays between the max value and zero. Every addition to the
+current value should be tracked with a short description of what the expense was.
+ */
 // is supposed to allow the User to track their finances.
 // Are we going to allow the user to add their own fields like "Food", "Mortgage", "Groceries", or are we going to add it?
 
