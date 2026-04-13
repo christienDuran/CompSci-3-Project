@@ -6,7 +6,7 @@ Template for storing data for a calendar event. Generic superclass for more spec
 
 public class Event implements TimeTracking {
     int id;
-    String tittle;
+    String title;
     String description;
     LocalDate date;
     LocalTime startTime;
@@ -30,15 +30,15 @@ public class Event implements TimeTracking {
 
     //Prefered way of editing an existing event.
 
-    public void editEvent(String newTittle, String newDescription, LocalDate newDate, LocalTime newStartTime, LocalTime newEndTime, boolean recurring) {
+    public void editEvent(String newTitle, String newDescription, LocalDate newDate, LocalTime newStartTime, LocalTime newEndTime, boolean recurring) {
 
     }
 
     // Boilerplate
 
-    public Event(int id, String tittle, String description, LocalDate date, LocalTime startTime, LocalTime endTime, boolean recurring) {
+    public Event(int id, String title, String description, LocalDate date, LocalTime startTime, LocalTime endTime, boolean recurring) {
         this.id = id;
-        this.tittle = tittle;
+        this.title = title;
         this.description = description;
         this.date = date;
         this.startTime = startTime;
@@ -54,12 +54,12 @@ public class Event implements TimeTracking {
         this.id = id;
     }
 
-    public String getTittle() {
-        return tittle;
+    public String getTitle() {
+        return title;
     }
 
-    public void setTittle(String tittle) {
-        this.tittle = tittle;
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getDescription() {
