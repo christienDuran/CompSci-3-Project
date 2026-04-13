@@ -4,39 +4,61 @@ import java.time.*;
 Template for storing data for a calendar event. Generic superclass for more specific event types,
  */
 
+// id cannot be passed manually
 public class Event implements TimeTracking {
-    int id;
-    String title;
-    String description;
-    LocalDate date;
-    LocalTime startTime;
-    LocalTime endTime;
-    boolean recurring;
+   private int id;
+    private String title;
+   private  String description;
+   private  LocalDate date;
+  private   LocalTime startTime;
+   private LocalTime endTime;
+    private boolean recurring;
+
 
     //Interface methods
-
-    public void setTime(LocalTime time) {
+    //setTime and getTime are not self-explanatory or easy to identify so they are setStartTime
+    // and getStartTime
+    public void setStartTime(LocalTime time) {
         this.startTime = time;
     }
     public void setDate(LocalDate date){
         this.date = date;
     }
-    public LocalTime getTime(){
+    public LocalTime getStartTime(){
         return this.startTime;
     }
     public LocalDate getDate(){
         return  this.date;
     }
 
+
     //Prefered way of editing an existing event.
+    public void editEvent(String newTitle,
+                          String newDescription,
+                          LocalDate newDate, LocalTime newStartTime,
+                          LocalTime newEndTime, boolean recurring) {
 
-    public void editEvent(String newTitle, String newDescription, LocalDate newDate, LocalTime newStartTime, LocalTime newEndTime, boolean recurring) {
+        this.title = newTitle;
+        this.description = newDescription;
+        this.date = newDate;
+        this.startTime = newStartTime;
+        this.endTime = newEndTime;
+        this.recurring = recurring;
 
+        // Needed validation so see if our Time set-up is valid
+        if(newEndTime.isBefore(this.startTime)){
+            throw new IllegalArgumentException("End time cannot be before start time.");
+        }
     }
 
-    // Boilerplate
 
-    public Event(int id, String title, String description, LocalDate date, LocalTime startTime, LocalTime endTime, boolean recurring) {
+
+
+
+    // Boilerplate
+    public Event(int id, String title, String description,
+                 LocalDate date, LocalTime startTime,
+                 LocalTime endTime, boolean recurring) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -84,5 +106,18 @@ public class Event implements TimeTracking {
 
     public void setRecurring(boolean recurring) {
         this.recurring = recurring;
+    }
+
+    // For debugging Purpose
+    @Override
+    public String toString() {
+        return "Event{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", date=" + date +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                ", recurring=" + recurring +
+                '}';
     }
 }

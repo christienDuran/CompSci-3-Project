@@ -4,10 +4,11 @@ date/time associated with them.
  */
 
 import java.time.*;
+
 interface TimeTracking {
-    public void setTime(LocalTime time);
+    public void setStartTime(LocalTime time);
     public void setDate(LocalDate date);
-    public LocalTime getTime();
+    public LocalTime getStartTime();
     public LocalDate getDate();
 
 }
