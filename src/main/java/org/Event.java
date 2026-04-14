@@ -1,3 +1,5 @@
+package org;
+
 import java.time.*;
 
 /*
@@ -111,7 +113,7 @@ public class Event implements TimeTracking {
     // For debugging Purpose
     @Override
     public String toString() {
-        return "Event{" +
+        return "org.Event{" +
                 "id=" + id +
                 ", title='" + title + '\'' +
                 ", date=" + date +

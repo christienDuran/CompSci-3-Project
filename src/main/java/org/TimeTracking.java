@@ -1,4 +1,4 @@
-/*
+package org;/*
 Interface for handling date and time information for objects which either keep track of the current date/time or have a
 date/time associated with them.
  */

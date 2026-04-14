@@ -1,4 +1,4 @@
-/*
+package org;/*
 Interfaces with weather API and stores forecast information for display.
  */
 
@@ -35,7 +35,7 @@ public class WeatherService {
         this.hourlyForecast = new ArrayList<>();
     }
 
-    // Lets the app reuse one WeatherService object while changing the selected location.
+    // Lets the app reuse one org.WeatherService object while changing the selected location.
     public void setLocation(double latitude, double longitude) {
         this.latitude = latitude;
         this.longitude = longitude;
@@ -85,7 +85,7 @@ public class WeatherService {
         }
     }
 
-    // Returns a copy so callers cannot mutate WeatherService internal state.
+    // Returns a copy so callers cannot mutate org.WeatherService internal state.
     public double[] getForecastData() {
         return forecastData.clone();
     }

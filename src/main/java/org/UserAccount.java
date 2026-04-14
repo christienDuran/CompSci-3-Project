@@ -1,11 +1,11 @@
-package example;// When the app opens up, we want the user to be able to click create account
+package org;// When the app opens up, we want the user to be able to click create account
 //          after clicking, they will be prompted to create a username and a password.
 
 // When they make their username and password, an accountID number should be randomly generated(which will be 5 numbers)
 // The accountID, username, and password will then be stored in a csv file
 
 // The next step will be, having a pop-up Questionnaire asking the user about wanting recurring Events stored-
-//  within their CalendarBook
+//  within their org.CalendarBook
 
 
 import java.util.Random;

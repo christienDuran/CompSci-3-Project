@@ -7,8 +7,7 @@ current value should be tracked with a short description of what the expense was
 // Are we going to allow the user to add their own fields like "Food", "Mortgage", "Groceries", or are we going to add it?
 
 import java.time.LocalDate;
-import java.util.ArrayList; // will need this if we are going to integrate an addexpense method call, unless we want
-                            // a grid to simply pop-up for the user to add their info into
+// a grid to simply pop-up for the user to add their info into
 
 public class Budget {
     private String expenseName;
@@ -18,7 +17,7 @@ public class Budget {
 }
 
     // Constructor
-    public Budget(String expenseName, double amount, LocalDate date) {
+    public void Budget(String expenseName, double amount, LocalDate date) {
         this.expenseName = expenseName;
         this.amount = amount;
         this.date = date;

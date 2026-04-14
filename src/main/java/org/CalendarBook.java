@@ -1,4 +1,4 @@
-/*
+package org;/*
 Stores Events, UserActions, and ProgressBars in program memory. Handles saving and loading events and progress bars.
 Allows for Events, ProgressBars, and undo/redo functionality to be accessed.
 
@@ -17,7 +17,7 @@ public class CalendarBook implements UserInputValidation {
 
     // Boilerplate
 
-    // The ArrayLists are initalized as empty when a CalendarBook is constructed.
+    // The ArrayLists are initalized as empty when a org.CalendarBook is constructed.
     public CalendarBook(String timezone, String currentView) {
         this.timezone = timezone;
         this.currentView = currentView;
@@ -96,10 +96,10 @@ public class CalendarBook implements UserInputValidation {
     // Loads progress bar data from CSV file.
     public void loadProgressBarData() {}
 
-    // Undoes the UserAction at the top of the undoStack and moves it to the redoStack
+    // Undoes the org.UserAction at the top of the undoStack and moves it to the redoStack
     public void undo() {}
 
-    // Redoes the UserAction on top of the redoStack and moves it to the undoStack
+    // Redoes the org.UserAction on top of the redoStack and moves it to the undoStack
     public void redo() {}
 
 }

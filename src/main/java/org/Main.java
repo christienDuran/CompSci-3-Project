@@ -1,7 +1,5 @@
 
-package org.example;
-
-import example.UserAccount;
+package org
 
 import java.util.Scanner;
 
