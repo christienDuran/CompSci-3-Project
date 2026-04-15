@@ -1,5 +1,5 @@
 
-package org
+package org;
 
 import java.util.Scanner;
 

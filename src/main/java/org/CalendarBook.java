@@ -60,14 +60,67 @@ public class CalendarBook implements UserInputValidation {
     }
 
     // The good stuff
+    // In order to assist with deleting events, each created event should have an ID
+    // event IDs can be generated when the event is created. This can help with deleting too,
+    // I looked up that it would be safer(error prevention)
 
-    public int createEvent() {
-        return index;
+    public Event createEvent(Event event){
+        eventArray.add(event);
+
+        //
+        undoStack.add(new UserAction("CREATED_EVENT", event));
+        redoStack.clear();
+
+        return event;
     }
 
-    public void deleteEvent(int index) {}
+    public void deleteEvent(int eventId){
+        Event toRemove = null;
 
-    public void editEvent(int index) {}
+        //can't remove an object without iterating. We don't want to get a ConcurrentModificationException
+        // We find the object then,
+        // if the object within array equals 'eventId', the object will equal 'toRemove'
+        // So, we are using loop to find the object, store it into a 'toRemove' and then remove the object after
+        // the loop ends
+        for (Event e : eventArray) {
+
+            if (e.getId() == eventId) {
+                toRemove = e;
+                break;
+            }
+        }
+        // might not know if the event exists yet, we initialize to null(prevent errors)
+        if (toRemove != null) {
+            eventArray.remove(toRemove);
+
+            undoStack.add(new UserAction("DELETED_EVENT", toRemove));
+            redoStack.clear();
+        }
+    }
+
+
+    // need for the system to grab the event's Id, so the credentials of the event to
+    // be changed
+    public void editEvent(int eventId, Event updatedEvent){
+        for( int i = 0; i < eventArray.size(); i++ ){
+            Event oldEvent = eventArray.get(i);
+
+            // if the Ids match, make the oldEvent credentials change to match the updatedEvent( that
+            // comes from the user)
+            if (oldEvent.getId() == eventId){
+                eventArray.set(i, updatedEvent);
+
+                //Also oldEvent acts as a screenshot before an edit, so it will let the user reverse a change
+                undoStack.add(new UserAction("EDITED_EVENT", oldEvent));
+                redoStack.clear(); // the redo and undo stack portion, I had to look-up and still don't quite comprehend,
+                return;             // but know that it functions like a timeline
+                // involving the 'return' after finding the correct event and updating, the looping process stops
+            }
+        }
+    }
+
+
+
 
     public Event getEvent() {}
 
