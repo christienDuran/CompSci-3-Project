@@ -21,6 +21,9 @@ public class Settings {
 
     private static final Preferences PREFS = Preferences.userNodeForPackage(Settings.class);
     private static final String PREF_KEY_WEATHER_UNIT = "weatherUnit";
+    private static final String PREF_KEY_WEATHER_LOCATION_LABEL = "weatherLocationLabel";
+    private static final String PREF_KEY_WEATHER_LATITUDE = "weatherLatitude";
+    private static final String PREF_KEY_WEATHER_LONGITUDE = "weatherLongitude";
     private static final Settings INSTANCE = new Settings();
 
     private int theme;
@@ -30,6 +33,10 @@ public class Settings {
     private String expandedSection;
     private double sidePanelDivider;
     private String weatherUnit;
+    private String weatherLocationLabel;
+    private double weatherLatitude;
+    private double weatherLongitude;
+    private boolean weatherLocationSaved;
 
     private Settings() {
         this.theme = THEME_LIGHT;
@@ -43,6 +50,22 @@ public class Settings {
             this.weatherUnit = WEATHER_UNIT_FAHRENHEIT;
         } else {
             this.weatherUnit = WEATHER_UNIT_CELSIUS;
+        }
+
+        String storedLocationLabel = PREFS.get(PREF_KEY_WEATHER_LOCATION_LABEL, "").trim();
+        double storedLatitude = PREFS.getDouble(PREF_KEY_WEATHER_LATITUDE, Double.NaN);
+        double storedLongitude = PREFS.getDouble(PREF_KEY_WEATHER_LONGITUDE, Double.NaN);
+
+        if (isValidLatitude(storedLatitude) && isValidLongitude(storedLongitude)) {
+            this.weatherLocationSaved = true;
+            this.weatherLatitude = storedLatitude;
+            this.weatherLongitude = storedLongitude;
+            this.weatherLocationLabel = storedLocationLabel.isBlank() ? "Custom coordinates" : storedLocationLabel;
+        } else {
+            this.weatherLocationSaved = false;
+            this.weatherLatitude = 0.0;
+            this.weatherLongitude = 0.0;
+            this.weatherLocationLabel = "";
         }
     }
 
@@ -80,6 +103,22 @@ public class Settings {
 
     public String getWeatherUnit() {
         return weatherUnit;
+    }
+
+    public boolean hasSavedWeatherLocation() {
+        return weatherLocationSaved;
+    }
+
+    public String getWeatherLocationLabel() {
+        return weatherLocationLabel;
+    }
+
+    public double getWeatherLatitude() {
+        return weatherLatitude;
+    }
+
+    public double getWeatherLongitude() {
+        return weatherLongitude;
     }
 
     public void changeTheme(int theme) {
@@ -131,6 +170,34 @@ public class Settings {
         }
         this.weatherUnit = weatherUnit;
         PREFS.put(PREF_KEY_WEATHER_UNIT, weatherUnit);
+    }
+
+    public void changeWeatherLocation(String locationLabel, double latitude, double longitude) {
+        if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+            return;
+        }
+
+        String normalizedLabel = locationLabel == null ? "" : locationLabel.trim();
+        if (normalizedLabel.isBlank()) {
+            normalizedLabel = "Custom coordinates";
+        }
+
+        this.weatherLocationSaved = true;
+        this.weatherLocationLabel = normalizedLabel;
+        this.weatherLatitude = latitude;
+        this.weatherLongitude = longitude;
+
+        PREFS.put(PREF_KEY_WEATHER_LOCATION_LABEL, normalizedLabel);
+        PREFS.putDouble(PREF_KEY_WEATHER_LATITUDE, latitude);
+        PREFS.putDouble(PREF_KEY_WEATHER_LONGITUDE, longitude);
+    }
+
+    private boolean isValidLatitude(double latitude) {
+        return !Double.isNaN(latitude) && latitude >= -90.0 && latitude <= 90.0;
+    }
+
+    private boolean isValidLongitude(double longitude) {
+        return !Double.isNaN(longitude) && longitude >= -180.0 && longitude <= 180.0;
     }
 
 }
