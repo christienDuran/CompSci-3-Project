@@ -31,6 +31,10 @@
     -fx-text-fill: #f8fafc;
 }
 
+.theme-dark .live-datetime-label {
+    -fx-text-fill: #cbd5e1;
+}
+
 .theme-dark .day-header {
     -fx-background-color: #1f2937;
     -fx-text-fill: #f8fafc;
@@ -164,6 +168,11 @@
 .month-label {
     -fx-font-size: 16px;
     -fx-font-weight: bold;
+}
+
+.live-datetime-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #334155;
 }
 
 .day-header {

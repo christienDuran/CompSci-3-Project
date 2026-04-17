@@ -74,6 +74,8 @@ public class CalendarFxApp extends Application {
     private static final String GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
     private static final DateTimeFormatter REMINDER_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd h:mm a");
     private static final DateTimeFormatter REMINDER_LIST_TIME_FORMAT = DateTimeFormatter.ofPattern("EEE h:mm a");
+    private static final DateTimeFormatter LIVE_DATE_TIME_12_FORMAT = DateTimeFormatter.ofPattern("EEE, MMM d yyyy  h:mm:ss a", Locale.US);
+    private static final DateTimeFormatter LIVE_DATE_TIME_24_FORMAT = DateTimeFormatter.ofPattern("EEE, MMM d yyyy  HH:mm:ss", Locale.US);
 
     private Stage stage;
     private Scene currentEventsScene;
@@ -120,12 +122,14 @@ public class CalendarFxApp extends Application {
     private VBox goalsContainer;
     private Label userLabel;
     private Label monthLabel;
+    private Label liveDateTimeLabel;
     private GridPane monthGrid;
     // Inline reminder strip shown directly under the month grid.
     private ListView<String> monthRemindersListView;
     private YearMonth visibleMonth;
     private LocalDate selectedDate;
     private Timeline reminderPoller;
+    private Timeline liveDateTimeTimeline;
     // Guard to prevent multiple reminder notification windows at once.
     private boolean reminderNotificationOpen;
     private WeatherService weatherService;
@@ -156,6 +160,12 @@ public class CalendarFxApp extends Application {
         stage.setHeight(860);
         stage.widthProperty().addListener((obs, oldW, newW) -> updateResponsiveLayout());
         stage.show();
+    }
+
+    @Override
+    public void stop() {
+        stopReminderPolling();
+        stopLiveDateTimeClock();
     }
 
     private Scene buildAuthScene() {
@@ -217,6 +227,7 @@ public class CalendarFxApp extends Application {
             refreshEventList();
             refreshRemindersArea();
             rebuildMonthGrid();
+            refreshLiveDateTimeMarker();
         });
         sidebarToggle = new CheckBox("Show side panel");
         sidebarToggle.setSelected(settings.isSideBarOpen());
@@ -568,6 +579,9 @@ public class CalendarFxApp extends Application {
         monthLabel = new Label();
         monthLabel.getStyleClass().add("month-label");
 
+        liveDateTimeLabel = new Label();
+        liveDateTimeLabel.getStyleClass().add("live-datetime-label");
+
         Button previousMonthBtn = new Button("<");
         previousMonthBtn.setOnAction(e -> {
             visibleMonth = visibleMonth.minusMonths(1);
@@ -583,7 +597,10 @@ public class CalendarFxApp extends Application {
         Button clearFilterBtn = new Button("Clear Day Filter");
         clearFilterBtn.setOnAction(e -> clearSelectedDate());
 
-        HBox monthHeader = new HBox(10, previousMonthBtn, monthLabel, nextMonthBtn, clearFilterBtn);
+        Region monthHeaderSpacer = new Region();
+        HBox.setHgrow(monthHeaderSpacer, Priority.ALWAYS);
+
+        HBox monthHeader = new HBox(10, previousMonthBtn, monthLabel, nextMonthBtn, clearFilterBtn, monthHeaderSpacer, liveDateTimeLabel);
         monthHeader.setAlignment(Pos.CENTER_LEFT);
 
         monthGrid = new GridPane();
@@ -609,8 +626,36 @@ public class CalendarFxApp extends Application {
         VBox panel = new VBox(10, monthHeader, monthGrid, monthRemindersTitle, monthRemindersListView);
         VBox.setVgrow(monthGrid, Priority.ALWAYS);
         rebuildMonthGrid();
+        startLiveDateTimeClock();
         refreshRemindersArea();
         return panel;
+    }
+
+    private void startLiveDateTimeClock() {
+        stopLiveDateTimeClock();
+        refreshLiveDateTimeMarker();
+
+        liveDateTimeTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> refreshLiveDateTimeMarker()));
+        liveDateTimeTimeline.setCycleCount(Timeline.INDEFINITE);
+        liveDateTimeTimeline.play();
+    }
+
+    private void stopLiveDateTimeClock() {
+        if (liveDateTimeTimeline != null) {
+            liveDateTimeTimeline.stop();
+            liveDateTimeTimeline = null;
+        }
+    }
+
+    private void refreshLiveDateTimeMarker() {
+        if (liveDateTimeLabel == null) {
+            return;
+        }
+
+        DateTimeFormatter formatter = Settings.TIME_FORMAT_24.equals(settings.getTimeFormat())
+            ? LIVE_DATE_TIME_24_FORMAT
+            : LIVE_DATE_TIME_12_FORMAT;
+        liveDateTimeLabel.setText(LocalDateTime.now().format(formatter));
     }
 
     private void rebuildMonthGrid() {
@@ -1329,6 +1374,7 @@ public class CalendarFxApp extends Application {
         currentWeatherLocationLabel = "";
         currentWeatherForecast = new ArrayList<>();
         stopReminderPolling();
+        stopLiveDateTimeClock();
         stage.setScene(buildAuthScene());
         authStatusLabel.setText("Logged out.");
     }
