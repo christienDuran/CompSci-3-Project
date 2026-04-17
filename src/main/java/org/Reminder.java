@@ -6,11 +6,17 @@ import java.time.format.DateTimeFormatter;
 /*
 Reminders are notifications that pop up to the user to remind them of important events. Reminders are created by the
 org.CalendarBook and associated with an org.Event. They are displayed by the UI.
+
+Reminder lifecycle:
+- recalculateTrigger(Event) sets the alert time from the event start.
+- isDue(now) checks whether the reminder should fire.
+- sendAlert(...) marks the reminder as fired after displaying the notification.
+- snoozeAlert(...) moves the trigger forward and clears the fired state.
  */
 public class Reminder {
 
     // Shared formatter used by console alerts.
-    private static final DateTimeFormatter ALERT_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter ALERT_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd h:mm a");
 
     // Unique ID for this reminder entry.
     private int reminderId;
@@ -69,13 +75,16 @@ public class Reminder {
     }
 
     /**
-     * Returns true once reminder should fire and has not already fired.
+     * Returns true only during the exact trigger minute and only if not already fired.
      */
     public boolean isDue(LocalDateTime now) {
         if (now == null || triggerAt == null) {
             return false;
         }
-        return active && !fired && (now.isEqual(triggerAt) || now.isAfter(triggerAt));
+
+        LocalDateTime nowMinute = now.withSecond(0).withNano(0);
+        LocalDateTime triggerMinute = triggerAt.withSecond(0).withNano(0);
+        return active && !fired && nowMinute.isEqual(triggerMinute);
     }
 
     /**

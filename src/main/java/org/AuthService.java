@@ -11,6 +11,44 @@ public final class AuthService {
     private AuthService() {
     }
 
+    // UI/Service entry point for account creation.
+    public static UserAccount createAccount(String username, String password) {
+        String normalizedUsername = username == null ? "" : username.trim();
+        String normalizedPassword = password == null ? "" : password.trim();
+
+        if (normalizedUsername.isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be empty.");
+        }
+        if (normalizedPassword.isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be empty.");
+        }
+
+        if (CsvStorage.usernameExists(normalizedUsername)) {
+            throw new IllegalArgumentException("That username already exists.");
+        }
+
+        UserAccount user = UserAccount.createAccount(normalizedUsername, normalizedPassword);
+        user.saveToCSV();
+        return user;
+    }
+
+    // UI/Service entry point for login.
+    public static UserAccount login(String username, String password) {
+        String normalizedUsername = username == null ? "" : username.trim();
+        String normalizedPassword = password == null ? "" : password;
+
+        if (normalizedUsername.isEmpty() || normalizedPassword.isEmpty()) {
+            throw new IllegalArgumentException("Username and password are required.");
+        }
+
+        UserAccount user = UserAccount.loginFromCSV(normalizedUsername, normalizedPassword);
+        if (user == null) {
+            throw new IllegalArgumentException("Invalid username or password.");
+        }
+
+        return user;
+    }
+
     // Registration flow:
     // 1) read username/password, 2) reject duplicates, 3) create and persist account.
     // Returns the created account or null when registration cannot continue.
@@ -18,18 +56,17 @@ public final class AuthService {
         System.out.println("Enter Username: ");
         String username = userInput.nextLine();
 
-        if (CsvStorage.usernameExists(username)) {
-            System.out.println("That username already exists. Please restart and choose a different username.");
-            return null;
-        }
-
         System.out.println(" Now enter your password: ");
         String password = userInput.nextLine();
 
-        UserAccount user = UserAccount.createAccount(username, password);
-        user.saveToCSV();
-        System.out.println("Account created! Your ID is: " + user.getAccountID());
-        return user;
+        try {
+            UserAccount user = createAccount(username, password);
+            System.out.println("Account created! Your ID is: " + user.getAccountID());
+            return user;
+        } catch (IllegalArgumentException ex) {
+            System.out.println(ex.getMessage());
+            return null;
+        }
     }
 
     // Login flow:
@@ -42,12 +79,13 @@ public final class AuthService {
         System.out.println("Enter your password: ");
         String password = userInput.nextLine();
 
-        UserAccount user = UserAccount.loginFromCSV(username, password);
-        if (user == null) {
+        try {
+            UserAccount user = login(username, password);
+            System.out.println("Welcome back, " + user.getUsername() + ". Your ID is: " + user.getAccountID());
+            return user;
+        } catch (IllegalArgumentException ex) {
+            System.out.println(ex.getMessage());
             return null;
         }
-
-        System.out.println("Welcome back, " + user.getUsername() + ". Your ID is: " + user.getAccountID());
-        return user;
     }
 }

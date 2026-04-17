@@ -122,17 +122,18 @@ public class CalendarBook implements UserInputValidation {
 
 
 
-    public Event getEvent() {}
+    // Temporary stubs keep class compilable until these features are implemented.
+    public Event getEvent() { return null; }
 
-    public ArrayList<Event> createSummary(boolean upcoming) {}
+    public ArrayList<Event> createSummary(boolean upcoming) { return new ArrayList<Event>(); }
 
-    public int createProgressBar() {}
+    public int createProgressBar() { return -1; }
 
     public void editProgressBar(int index) {}
 
     public void deleteProgressBar(int index) {}
 
-    public ProgressBar getProgressBar(int index) {}
+    public ProgressBar getProgressBar(int index) { return null; }
 
     // Loads event data to eventArray from CSV file.
     public void loadEventData() {}

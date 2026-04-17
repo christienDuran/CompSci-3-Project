@@ -1,5 +1,7 @@
 plugins {
     id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 group = 'org.example'
@@ -19,4 +21,31 @@ dependencies {
 test {
 
     useJUnitPlatform()
+}
+
+application {
+    mainClass = 'org.Main'
+}
+
+javafx {
+    version = '21.0.3'
+    modules = ['javafx.controls']
+}
+
+tasks.register('runFx', JavaExec) {
+    group = 'application'
+    description = 'Runs the JavaFX calendar UI.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.CalendarFxApp'
+    def javafxModules = ['javafx.controls']
+    jvmArgs = [
+        '--module-path', classpath.asPath,
+        '--add-modules', javafxModules.join(',')
+    ]
+}
+
+tasks.register('runUi') {
+    group = 'application'
+    description = 'Alias for runFx (kept for compatibility).'
+    dependsOn 'runFx'
 }

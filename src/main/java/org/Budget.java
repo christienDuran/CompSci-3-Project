@@ -1,4 +1,6 @@
 
+package org;
+
 /*
 For creating Budgets that will display in the calendar as progress bars. Has a max value, a current value, and a name.
 The current value can be incremented by any amount but stays between the max value and zero. Every addition to the
@@ -14,16 +16,23 @@ public class Budget {
     private String expenseName;
     private double amount;
     private LocalDate date; // allow the user to set a time when an expense needs to be paid
-}
 
-// Constructor
-public void Budget(String expenseName, double amount, LocalDate date) {
-    this.expenseName = expenseName;
-    this.amount = amount;
-    this.date = date;
-}
+    // Constructor
+    public Budget(String expenseName, double amount, LocalDate date) {
+        this.expenseName = expenseName;
+        this.amount = amount;
+        this.date = date;
+    }
 
-void main() {
-}
+    public String getExpenseName() {
+        return expenseName;
+    }
 
-//Methods
+    public double getAmount() {
+        return amount;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+}
