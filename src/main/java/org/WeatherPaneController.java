@@ -7,7 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -206,13 +206,13 @@ public class WeatherPaneController {
             return;
         }
 
-        List<WeatherService.ForecastEntry> todayForecast = forecastForDate(forecast, LocalDate.now());
-        List<WeatherService.ForecastEntry> entriesToShow = todayForecast.isEmpty() ? forecast : todayForecast;
+        List<WeatherService.ForecastEntry> entriesToShow = forecastStartingFromNow(forecast);
+        String forecastLabel = entriesToShow.size() < forecast.size() ? "Current" : "Upcoming";
 
         weatherCardsBox.getChildren().clear();
 
         Label meta = new Label("Coords: " + String.format(Locale.US, "%.4f", latitude) + ", " + String.format(Locale.US, "%.4f", longitude)
-            + "  |  " + (todayForecast.isEmpty() ? "Upcoming" : "Today") + " forecast"
+            + "  |  " + forecastLabel + " forecast"
             + "  |  Unit: " + (isFahrenheitWeatherUnit() ? "°F" : "°C"));
         meta.setStyle(settings.isDarkTheme()
             ? "-fx-text-fill: #cbd5e1; -fx-font-size: 11px;"
@@ -499,13 +499,18 @@ public class WeatherPaneController {
         return Double.parseDouble(matcher.group(1));
     }
 
-    private List<WeatherService.ForecastEntry> forecastForDate(List<WeatherService.ForecastEntry> forecast, LocalDate date) {
+    private List<WeatherService.ForecastEntry> forecastStartingFromNow(List<WeatherService.ForecastEntry> forecast) {
         List<WeatherService.ForecastEntry> filtered = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
 
         for (WeatherService.ForecastEntry entry : forecast) {
-            if (entry.getTime().toLocalDate().equals(date)) {
+            if (!entry.getTime().isBefore(now)) {
                 filtered.add(entry);
             }
+        }
+
+        if (filtered.isEmpty()) {
+            return forecast;
         }
 
         return filtered;
