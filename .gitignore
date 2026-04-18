@@ -1,0 +1,8 @@
+# Gradle cache and build output
+.gradle/
+build/
+
+# Compiled classes/output
+bin/
+out/
+*.class

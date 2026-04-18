@@ -1,46 +1,67 @@
-package org;// When the app opens up, we want the user to be able to click create account
-//          after clicking, they will be prompted to create a username and a password.
+package org;
 
-// When they make their username and password, an accountID number should be randomly generated(which will be 5 numbers)
-// The accountID, username, and password will then be stored in a csv file
+// UserAccount stores one user's credentials and account identity.
+// New accounts are created from user input, then added to users.csv.
+// Existing accounts are loaded from users.csv for login validation.
+// Each account ID is used to link that user to their events in events.csv.
 
-// The next step will be, having a pop-up Questionnaire asking the user about wanting recurring Events stored-
-//  within their org.CalendarBook
-
-
-import java.util.Random;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.util.List;
 
 
+/**
+ * Represents a single user account in the system.
+ * Holds account identity/login state and delegates CSV persistence operations.
+ */
 public class UserAccount {
 
-    // Fields
+    // The unique username chosen by the user.
     private String username;
+    // Plain-text password stored for simple local use in this project.
     private String password;
+    // Numeric account identifier used to link records across CSV files.
     private int accountID;           // This will be randomly generated and not provided by the User
+    // Tracks whether this in-memory user object is currently logged in.
     private boolean isLoggedIn;
 
-    // Constructor
+    // Constructor used by account creation and CSV loading helpers.
     public UserAccount(String username, String password, int accountID) {
         this.username = username;
-        this.password = password;  // Security vulnerability
+        this.password = password;
         this.accountID = accountID;
         this.isLoggedIn = false;
     }
 
-    // Create Account,
+    // Factory method for account creation.
+    // It allocates the next account ID and stores the provided password directly.
     public static UserAccount createAccount(String username, String password) {
-        Random rand = new Random();
-        int accountID = 10000 + rand.nextInt(90000); // ensures 5-digit number
+        int accountID = CsvStorage.nextAccountId();
         return new UserAccount(username, password, accountID);
+    }
+
+    // Loads account row from users.csv and validates incoming credentials.
+    // Returns the loaded account on success, or null on failed authentication.
+    public static UserAccount loginFromCSV(String username, String password) {
+        UserAccount storedUser = CsvStorage.findUserByUsername(username);
+        if (storedUser == null) {
+            System.out.println("Invalid username or password.");
+            return null;
+        }
+
+        if (!storedUser.password.equals(password)) {
+            System.out.println("Invalid username or password.");
+            return null;
+        }
+
+        storedUser.isLoggedIn = true;
+        System.out.println("Login successful.");
+        return storedUser;
     }
 
 
 
 
 
-    // Login method
+    // In-memory login check for this already-instantiated account object.
     public boolean login(String username, String password) {
         if (this.username.equals(username) && this.password.equals(password)) {
             isLoggedIn = true;
@@ -52,7 +73,7 @@ public class UserAccount {
         }
     }
 
-    // Logout method
+    // Clears login state for this account instance.
     public void logout() {
         if (isLoggedIn) {
             isLoggedIn = false;
@@ -63,31 +84,42 @@ public class UserAccount {
     }
 
 
-    //Saving the user's credentials to a csv file, but has no duplicate checking or validation
+    // Saves account info so the user is added to users.csv.
+    // Duplicate username checks happen inside CsvStorage.
     public void saveToCSV() {
-        try (FileWriter writer = new FileWriter("users.csv", true)) {
-            writer.append(accountID + "," + username + "," + password + "\n");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        CsvStorage.saveUser(this);
     }
 
-    // We need to be able to allow a user to login when there account already exists
-    //Load users from file
-    //Match username/password
+    // Saves one event row for this specific account into events.csv.
+    public void saveEventToCSV(Event event) {
+        CsvStorage.saveEventForUser(this.accountID, event);
+    }
 
-    // WE also need to be able to  Hide passwords (basic security)
-    // like john,hashed_password
+    // Loads all events owned by this account from events.csv.
+    public List<Event> loadMyEvents() {
+        return CsvStorage.loadEventsForUser(this.accountID);
+    }
 
-    // Getters
+    // We need to be able to allow a user to login when their account already exists.
+    // Load users from file and match username/password.
+
+    // We also need a basic way to hide passwords in storage.
+    // Example format: john,hashed_password
+
+    // Returns the account username.
     public String getUsername() {
         return username;
     }
 
+    // Returns this account's numeric ID.
     public int getAccountID() {
         return accountID;
     }
 
+    // Returns the stored plain-text password.
+    public String getPassword() {
+        return password;
+    }
 
 }
 
