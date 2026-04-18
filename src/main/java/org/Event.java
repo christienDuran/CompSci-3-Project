@@ -54,6 +54,21 @@ public class Event implements TimeTracking {
     }
 
 
+    // To prevent our Undo button from breaking
+    // This will allow 2 separate objects to exist.  → The original and the updated object
+    // without the copy function there with be 1 object with 2 references and they both will change.
+    // We want to preserve past states of objects
+    public Event copy() {
+        return new Event(
+                this.id,
+                this.title,
+                this.description,
+                this.date,
+                this.startTime,
+                this.endTime,
+                this.recurring
+        );
+    }
 
 
 

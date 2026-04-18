@@ -13,7 +13,7 @@ public class CalendarBook implements UserInputValidation {
     private ArrayList<Event> eventArray;
     private ArrayList<UserAction> undoStack;
     private ArrayList<UserAction> redoStack;
-    private ArrayList<ProgressBar> progrssBarArray;
+    private ArrayList<ProgressBar> progressBarArray;
 
     // Boilerplate
 
@@ -24,7 +24,17 @@ public class CalendarBook implements UserInputValidation {
         this.eventArray = new ArrayList<Event>();
         this.undoStack = new ArrayList<UserAction>();
         this.redoStack = new ArrayList<UserAction>();
-        this.progrssBarArray = new ArrayList<ProgressBar>();
+        this.progressBarArray = new ArrayList<ProgressBar>();
+    }
+
+    // The purpose allows the system to -Find the event that was edited, and restore the old version
+    private void replaceEvent(int id, Event replacement) {
+        for (int i = 0; i < eventArray.size(); i++) {
+            if (eventArray.get(i).getId() == id) {
+                eventArray.set(i, replacement);
+                return;
+            }
+        }
     }
 
     public String getTimezone() {
@@ -43,8 +53,9 @@ public class CalendarBook implements UserInputValidation {
         this.currentView = currentView;
     }
 
+    //
     public ArrayList<Event> getEventArray() {
-        return eventArray;
+        return new ArrayList<>(eventArray);
     }
 
     public ArrayList<UserAction> getUndoStack() {
@@ -55,8 +66,8 @@ public class CalendarBook implements UserInputValidation {
         return redoStack;
     }
 
-    public ArrayList<ProgressBar> getProgrssBarArray() {
-        return progrssBarArray;
+    public ArrayList<ProgressBar> getProgressBarArray() {
+        return progressBarArray;
     }
 
     // The good stuff
@@ -67,10 +78,8 @@ public class CalendarBook implements UserInputValidation {
     public Event createEvent(Event event){
         eventArray.add(event);
 
-        //
-        undoStack.add(new UserAction("CREATED_EVENT", event));
+        undoStack.add(new UserAction(UserAction.ActionType.CREATE_EVENT, event));
         redoStack.clear();
-
         return event;
     }
 
@@ -93,7 +102,7 @@ public class CalendarBook implements UserInputValidation {
         if (toRemove != null) {
             eventArray.remove(toRemove);
 
-            undoStack.add(new UserAction("DELETED_EVENT", toRemove));
+            undoStack.add(new UserAction(UserAction.ActionType.DELETE_EVENT, toRemove));
             redoStack.clear();
         }
     }
@@ -103,18 +112,30 @@ public class CalendarBook implements UserInputValidation {
     // be changed
     public void editEvent(int eventId, Event updatedEvent){
         for( int i = 0; i < eventArray.size(); i++ ){
-            Event oldEvent = eventArray.get(i);
+            Event oldEvent = eventArray.get(i);         //Also oldEvent acts as a screenshot before an edit, so it will let the user reverse a change
+
 
             // if the Ids match, make the oldEvent credentials change to match the updatedEvent( that
             // comes from the user)
             if (oldEvent.getId() == eventId){
+
+                Event oldCopy = oldEvent.copy();
+
+                updatedEvent.setId(eventId);      // if the updatedEvent object houses a different Id from whats in eventArray the system crashes
                 eventArray.set(i, updatedEvent);
 
-                //Also oldEvent acts as a screenshot before an edit, so it will let the user reverse a change
-                undoStack.add(new UserAction("EDITED_EVENT", oldEvent));
+
+                //undoStack.add(new UserAction(UserAction.ActionType.Edit_Event, oldEvent));
+                undoStack.add(new UserAction(
+                        UserAction.ActionType.EDIT_EVENT,
+                        oldCopy,
+                        updatedEvent
+                ));
                 redoStack.clear(); // the redo and undo stack portion, I had to look-up and still don't quite comprehend,
                 return;             // but know that it functions like a timeline
                 // involving the 'return' after finding the correct event and updating, the looping process stops
+
+
             }
         }
     }
@@ -122,7 +143,16 @@ public class CalendarBook implements UserInputValidation {
 
 
 
-    public Event getEvent() {}
+    public Event getEvent(int eventId) // needed Id parameters
+    {
+        for (Event e : eventArray) {
+            if (e.getId() == eventId) {
+                return e;
+            }
+        }
+        return null;
+    }
+
 
     public ArrayList<Event> createSummary(boolean upcoming) {}
 
@@ -150,9 +180,40 @@ public class CalendarBook implements UserInputValidation {
     public void loadProgressBarData() {}
 
     // Undoes the org.UserAction at the top of the undoStack and moves it to the redoStack
-    public void undo() {}
+
+    public void undo() {
+        if (undoStack.isEmpty()) {
+            System.out.println("Nothing to undo.");  // SAFEGUARD to prevent crashes
+            return;
+        }
+
+        UserAction action = undoStack.remove(undoStack.size() - 1);  // need notes here to explain
+
+        switch (action.getType()) {
+
+            case CREATE_EVENT:
+                eventArray.remove(action.getNewEvent());
+                break;
+
+            case DELETE_EVENT:
+                eventArray.add(action.getOldEvent());
+                break;
+
+            case EDIT_EVENT:
+                replaceEvent(
+                        action.getNewEvent().getId(),
+                        action.getOldEvent()
+                );
+                break;
+        }
+
+        redoStack.add(action);
+    }
+
 
     // Redoes the org.UserAction on top of the redoStack and moves it to the undoStack
-    public void redo() {}
+    public void redo() {
+
+    }
 
 }
