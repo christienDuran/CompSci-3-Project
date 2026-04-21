@@ -300,6 +300,71 @@ public final class CsvStorage {
         writeAllLines(EVENTS_PATH, rows);
     }
 
+    // Rewrites one event row for the given account and event ID.
+    public static synchronized void updateEventForUser(int accountId, Event updatedEvent) {
+        ensureEventsFile();
+
+        if (updatedEvent == null) {
+            throw new IllegalArgumentException("updatedEvent is required.");
+        }
+        if (updatedEvent.getId() <= 0) {
+            throw new IllegalArgumentException("Event ID is required for update.");
+        }
+        if (updatedEvent.getDate() == null || updatedEvent.getStartTime() == null || updatedEvent.getEndTime() == null) {
+            throw new IllegalArgumentException("Event date/start/end time are required before updating.");
+        }
+
+        List<String> rows = new ArrayList<>();
+        rows.add(EVENTS_HEADER);
+        boolean updated = false;
+
+        try {
+            List<String> lines = Files.readAllLines(EVENTS_PATH, StandardCharsets.UTF_8);
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i);
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                List<String> fields = parseCsvLine(line);
+                if (fields.size() < 8) {
+                    rows.add(line);
+                    continue;
+                }
+
+                try {
+                    int rowAccountId = Integer.parseInt(fields.get(0));
+                    int rowEventId = Integer.parseInt(fields.get(1));
+
+                    if (rowAccountId == accountId && rowEventId == updatedEvent.getId()) {
+                        rows.add(accountId
+                            + "," + updatedEvent.getId()
+                            + "," + escape(updatedEvent.getTitle())
+                            + "," + escape(updatedEvent.getDescription())
+                            + "," + updatedEvent.getDate()
+                            + "," + updatedEvent.getStartTime()
+                            + "," + updatedEvent.getEndTime()
+                            + "," + updatedEvent.isRecurring());
+                        updated = true;
+                        continue;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // Keep malformed rows untouched.
+                }
+
+                rows.add(line);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed reading events CSV", e);
+        }
+
+        if (!updated) {
+            throw new IllegalArgumentException("Event #" + updatedEvent.getId() + " was not found for this user.");
+        }
+
+        writeAllLines(EVENTS_PATH, rows);
+    }
+
     // Saves all reminders for one account by rewriting reminders.csv.
     public static synchronized void saveRemindersForUser(int accountId, List<Reminder> reminders) {
         ensureRemindersFile();

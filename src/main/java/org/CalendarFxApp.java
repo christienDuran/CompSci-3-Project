@@ -10,17 +10,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Accordion;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
@@ -29,6 +36,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -86,7 +94,6 @@ public class CalendarFxApp extends Application {
     private Label goalStatusLabel;
     private Label eventListTitle;
     private ListView<String> eventsListView;
-    private List<Event> displayedEvents = new ArrayList<>();
     private ListView<String> remindersListView;
     private Label weatherHeaderLabel;
     private VBox weatherCardsBox;
@@ -264,6 +271,9 @@ public class CalendarFxApp extends Application {
         Button deleteBtn = new Button("Delete Selected Event");
         deleteBtn.setOnAction(e -> eventUiController.handleDeleteSelectedEvent());
 
+        Button editBtn = new Button("Edit Selected Event");
+        editBtn.setOnAction(e -> eventUiController.handleEditSelectedEvent());
+
         Button logoutBtn = new Button("Logout");
         logoutBtn.setOnAction(e -> handleLogout());
 
@@ -284,14 +294,16 @@ public class CalendarFxApp extends Application {
         Button saveGoalBtn = new Button("Save Goal");
         saveGoalBtn.setOnAction(e -> handleSaveGoal());
 
-        HBox eventActions = new HBox(8, saveBtn, refreshBtn, deleteBtn, logoutBtn);
+        HBox eventActions = new HBox(8, saveBtn, refreshBtn, editBtn, deleteBtn, logoutBtn);
         eventActions.getStyleClass().add("action-row");
         HBox.setHgrow(saveBtn, Priority.ALWAYS);
         HBox.setHgrow(refreshBtn, Priority.ALWAYS);
+        HBox.setHgrow(editBtn, Priority.ALWAYS);
         HBox.setHgrow(deleteBtn, Priority.ALWAYS);
         HBox.setHgrow(logoutBtn, Priority.ALWAYS);
         saveBtn.setMaxWidth(Double.MAX_VALUE);
         refreshBtn.setMaxWidth(Double.MAX_VALUE);
+        editBtn.setMaxWidth(Double.MAX_VALUE);
         deleteBtn.setMaxWidth(Double.MAX_VALUE);
         logoutBtn.setMaxWidth(Double.MAX_VALUE);
 
@@ -437,16 +449,13 @@ public class CalendarFxApp extends Application {
             () -> stage,
             () -> monthViewController,
             this::activeEventTimeFormatter,
-            (unused) -> {}  // onRefreshEventList not needed
-            , (date) -> {}  // onSelectDateForCreation not needed
-            , (unused) -> refreshRemindersArea()  // onRefreshRemindersArea
+            (unused) -> refreshRemindersArea()  // onRefreshRemindersArea
             , (unused) -> reloadEventsCache()  // onReloadEventsCache
-            , (unused) -> {}  // onGetDisplayedEvents not needed
             , date -> { selectedDate = date; }  // onUpdateSelectedDate
             , () -> buildTimePicker("9:00 AM")  // timePickerFactory
         );
         
-        // Update events list click handler to use eventUiController
+        // Double-clicking an event still opens its read-only details dialog.
         eventsListView.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2) {
                 int index = eventsListView.getSelectionModel().getSelectedIndex();
@@ -558,8 +567,39 @@ public class CalendarFxApp extends Application {
         eventListTitle.getStyleClass().add("section-title");
         eventsListView = new ListView<>();
         eventsListView.setPlaceholder(new Label("No events yet."));
-        // Handler will be set up after eventUiController is created in buildEventsScene
-        VBox eventsPane = new VBox(8, eventListTitle, eventsListView);
+
+        MenuItem editEventMenuItem = new MenuItem("Edit Selected Event");
+        editEventMenuItem.setOnAction(e -> {
+            if (eventUiController != null) {
+                eventUiController.handleEditSelectedEvent();
+            }
+        });
+        MenuItem deleteEventMenuItem = new MenuItem("Delete Selected Event");
+        deleteEventMenuItem.setOnAction(e -> {
+            if (eventUiController != null) {
+                eventUiController.handleDeleteSelectedEvent();
+            }
+        });
+        eventsListView.setContextMenu(new ContextMenu(editEventMenuItem, deleteEventMenuItem));
+
+        Button editEventBtn = new Button("Edit Selected Event");
+        editEventBtn.setMaxWidth(Double.MAX_VALUE);
+        editEventBtn.setOnAction(e -> {
+            if (eventUiController != null) {
+                eventUiController.handleEditSelectedEvent();
+            }
+        });
+
+        Button deleteEventBtn = new Button("Delete Selected Event");
+        deleteEventBtn.setMaxWidth(Double.MAX_VALUE);
+        deleteEventBtn.setOnAction(e -> {
+            if (eventUiController != null) {
+                eventUiController.handleDeleteSelectedEvent();
+            }
+        });
+
+        // Events tab mirrors reminders tab with edit/delete buttons below the list.
+        VBox eventsPane = new VBox(8, eventListTitle, eventsListView, editEventBtn, deleteEventBtn);
         VBox.setVgrow(eventsListView, Priority.ALWAYS);
         eventsPane.setPadding(new Insets(8));
 
@@ -567,7 +607,26 @@ public class CalendarFxApp extends Application {
         reminderTitle.getStyleClass().add("section-title");
         remindersListView = new ListView<>();
         remindersListView.setPlaceholder(new Label("No reminders configured."));
-        VBox remindersPane = new VBox(8, reminderTitle, remindersListView);
+        remindersListView.setOnMouseClicked(e -> {
+            if (e.getClickCount() == 2) {
+                handleEditSelectedReminder();
+            }
+        });
+
+        MenuItem editReminderMenuItem = new MenuItem("Edit Selected Reminder");
+        editReminderMenuItem.setOnAction(e -> handleEditSelectedReminder());
+        MenuItem deleteReminderMenuItem = new MenuItem("Delete Selected Reminder");
+        deleteReminderMenuItem.setOnAction(e -> handleDeleteSelectedReminder());
+        remindersListView.setContextMenu(new ContextMenu(editReminderMenuItem, deleteReminderMenuItem));
+
+        Button editReminderBtn = new Button("Edit Selected Reminder");
+        editReminderBtn.setMaxWidth(Double.MAX_VALUE);
+        editReminderBtn.setOnAction(e -> handleEditSelectedReminder());
+
+        Button deleteReminderBtn = new Button("Delete Selected Reminder");
+        deleteReminderBtn.setMaxWidth(Double.MAX_VALUE);
+        deleteReminderBtn.setOnAction(e -> handleDeleteSelectedReminder());
+        VBox remindersPane = new VBox(8, reminderTitle, remindersListView, editReminderBtn, deleteReminderBtn);
         VBox.setVgrow(remindersListView, Priority.ALWAYS);
         remindersPane.setPadding(new Insets(8));
 
@@ -846,10 +905,114 @@ public class CalendarFxApp extends Application {
 
         Label details = new Label(goal.progressLabel());
 
-        VBox card = new VBox(6, name, bar, details);
+        Button editGoalBtn = new Button("Edit");
+        editGoalBtn.setOnAction(e -> handleEditGoal(goal));
+        Button deleteGoalBtn = new Button("Delete");
+        deleteGoalBtn.setOnAction(e -> handleDeleteGoal(goal));
+        HBox actions = new HBox(8, editGoalBtn, deleteGoalBtn);
+
+        VBox card = new VBox(6, name, bar, details, actions);
         card.getStyleClass().add("weather-card");
         card.setPadding(new Insets(10));
         return card;
+    }
+
+    private void handleEditGoal(Goal goal) {
+        if (currentUser == null) {
+            authStatusLabel.setText("No active user session.");
+            return;
+        }
+
+        Dialog<GoalEditInput> dialog = new Dialog<>();
+        dialog.initOwner(stage);
+        dialog.setTitle("Edit Goal");
+        dialog.setHeaderText("Edit goal #" + goal.getGoalId());
+
+        ButtonType saveType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+
+        TextField nameField = new TextField(goal.getName());
+        TextField currentField = new TextField(String.valueOf(goal.getCurrentValue()));
+        TextField targetField = new TextField(String.valueOf(goal.getTargetValue()));
+
+        GridPane content = new GridPane();
+        content.setHgap(8);
+        content.setVgap(8);
+        content.add(new Label("Goal name"), 0, 0);
+        content.add(nameField, 1, 0);
+        content.add(new Label("Current value"), 0, 1);
+        content.add(currentField, 1, 1);
+        content.add(new Label("Target value"), 0, 2);
+        content.add(targetField, 1, 2);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(buttonType -> {
+            if (buttonType != saveType) {
+                return null;
+            }
+            return new GoalEditInput(nameField.getText(), currentField.getText(), targetField.getText());
+        });
+
+        Optional<GoalEditInput> result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            return;
+        }
+
+        try {
+            GoalEditInput input = result.get();
+            String normalizedName = input.name == null ? "" : input.name.trim();
+            if (normalizedName.isBlank()) {
+                throw new IllegalArgumentException("Goal name is required.");
+            }
+
+            double currentValue = Double.parseDouble(input.currentValue.trim());
+            double targetValue = Double.parseDouble(input.targetValue.trim());
+            if (targetValue <= 0) {
+                throw new IllegalArgumentException("Target value must be greater than 0.");
+            }
+            if (currentValue < 0) {
+                throw new IllegalArgumentException("Current value cannot be negative.");
+            }
+
+            for (Goal existing : goals) {
+                if (existing.getGoalId() != goal.getGoalId() && existing.getName().equalsIgnoreCase(normalizedName)) {
+                    throw new IllegalArgumentException("A different goal already uses this name.");
+                }
+            }
+
+            goal.setName(normalizedName);
+            goal.setCurrentValue(currentValue);
+            goal.setTargetValue(targetValue);
+            CsvStorage.saveGoalsForUser(currentUser.getAccountID(), goals);
+            refreshGoalsArea();
+            goalStatusLabel.setText("Updated goal #" + goal.getGoalId());
+        } catch (NumberFormatException ex) {
+            goalStatusLabel.setText("Current and target values must be numbers.");
+        } catch (IllegalArgumentException ex) {
+            goalStatusLabel.setText(ex.getMessage());
+        }
+    }
+
+    private void handleDeleteGoal(Goal goal) {
+        if (currentUser == null) {
+            authStatusLabel.setText("No active user session.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Delete Goal");
+        confirm.setHeaderText("Delete goal \"" + goal.getName() + "\"?");
+        confirm.setContentText("This goal will be permanently removed.");
+
+        Optional<ButtonType> decision = confirm.showAndWait();
+        if (decision.isEmpty() || decision.get() != ButtonType.OK) {
+            return;
+        }
+
+        goals.removeIf(existing -> existing.getGoalId() == goal.getGoalId());
+        CsvStorage.saveGoalsForUser(currentUser.getAccountID(), goals);
+        refreshGoalsArea();
+        goalStatusLabel.setText("Deleted goal #" + goal.getGoalId());
     }
 
     private void handleLogout() {
@@ -941,30 +1104,7 @@ public class CalendarFxApp extends Application {
             return rows;
         }
 
-        List<Reminder> sortedReminders = new ArrayList<>(reminders);
-        sortedReminders.sort((left, right) -> {
-            LocalDateTime leftTime = left.getTriggerAt();
-            LocalDateTime rightTime = right.getTriggerAt();
-
-            if (leftTime == null && rightTime == null) {
-                return Integer.compare(left.getReminderId(), right.getReminderId());
-            }
-            if (leftTime == null) {
-                return 1;
-            }
-            if (rightTime == null) {
-                return -1;
-            }
-
-            int byTime = leftTime.compareTo(rightTime);
-            if (byTime != 0) {
-                return byTime;
-            }
-
-            return Integer.compare(left.getReminderId(), right.getReminderId());
-        });
-
-        for (Reminder reminder : sortedReminders) {
+        for (Reminder reminder : remindersSortedForDisplay()) {
             Event event = findEventById(reminder.getEventId());
             StringBuilder row = new StringBuilder();
             String title = (event == null || event.getTitle() == null || event.getTitle().isBlank())
@@ -997,6 +1137,176 @@ public class CalendarFxApp extends Application {
         }
 
         return rows;
+    }
+
+    private List<Reminder> remindersSortedForDisplay() {
+        List<Reminder> sortedReminders = new ArrayList<>(reminders);
+        sortedReminders.sort((left, right) -> {
+            LocalDateTime leftTime = left.getTriggerAt();
+            LocalDateTime rightTime = right.getTriggerAt();
+
+            if (leftTime == null && rightTime == null) {
+                return Integer.compare(left.getReminderId(), right.getReminderId());
+            }
+            if (leftTime == null) {
+                return 1;
+            }
+            if (rightTime == null) {
+                return -1;
+            }
+
+            int byTime = leftTime.compareTo(rightTime);
+            if (byTime != 0) {
+                return byTime;
+            }
+
+            return Integer.compare(left.getReminderId(), right.getReminderId());
+        });
+
+        return sortedReminders;
+    }
+
+    private void handleDeleteSelectedReminder() {
+        if (currentUser == null) {
+            if (authStatusLabel != null) {
+                authStatusLabel.setText("No active user session.");
+            }
+            return;
+        }
+
+        if (remindersListView == null) {
+            return;
+        }
+
+        int selectedIndex = remindersListView.getSelectionModel().getSelectedIndex();
+        List<Reminder> sortedReminders = remindersSortedForDisplay();
+        if (selectedIndex < 0 || selectedIndex >= sortedReminders.size()) {
+            if (formStatusLabel != null) {
+                formStatusLabel.setText("Select a reminder from the Reminders list first.");
+            }
+            return;
+        }
+
+        Reminder selectedReminder = sortedReminders.get(selectedIndex);
+        Event event = findEventById(selectedReminder.getEventId());
+        String eventTitle = (event == null || event.getTitle() == null || event.getTitle().isBlank())
+            ? "Event #" + selectedReminder.getEventId()
+            : event.getTitle();
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Delete Reminder");
+        confirm.setHeaderText("Delete reminder #" + selectedReminder.getReminderId() + "?");
+        confirm.setContentText("This reminder for \"" + eventTitle + "\" will be permanently removed.");
+
+        Optional<ButtonType> decision = confirm.showAndWait();
+        if (decision.isEmpty() || decision.get() != ButtonType.OK) {
+            return;
+        }
+
+        reminders.removeIf(reminder -> reminder.getReminderId() == selectedReminder.getReminderId());
+        CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
+        refreshRemindersArea();
+
+        if (formStatusLabel != null) {
+            formStatusLabel.setText("Deleted reminder #" + selectedReminder.getReminderId());
+        }
+    }
+
+    private void handleEditSelectedReminder() {
+        if (currentUser == null) {
+            if (authStatusLabel != null) {
+                authStatusLabel.setText("No active user session.");
+            }
+            return;
+        }
+
+        if (remindersListView == null) {
+            return;
+        }
+
+        int selectedIndex = remindersListView.getSelectionModel().getSelectedIndex();
+        List<Reminder> sortedReminders = remindersSortedForDisplay();
+        if (selectedIndex < 0 || selectedIndex >= sortedReminders.size()) {
+            if (formStatusLabel != null) {
+                formStatusLabel.setText("Select a reminder from the Reminders list first.");
+            }
+            return;
+        }
+
+        Reminder selectedReminder = sortedReminders.get(selectedIndex);
+
+        Dialog<ReminderEditInput> dialog = new Dialog<>();
+        dialog.initOwner(stage);
+        dialog.setTitle("Edit Reminder");
+        dialog.setHeaderText("Edit reminder #" + selectedReminder.getReminderId());
+
+        ButtonType saveType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+
+        TextField minutesBeforeField = new TextField(String.valueOf(selectedReminder.getMinutesBefore()));
+        TextField snoozeField = new TextField(String.valueOf(selectedReminder.getSnoozeLength()));
+        CheckBox activeCheck = new CheckBox("Reminder enabled");
+        activeCheck.setSelected(selectedReminder.isActive());
+
+        GridPane content = new GridPane();
+        content.setHgap(8);
+        content.setVgap(8);
+        content.add(new Label("Minutes before event"), 0, 0);
+        content.add(minutesBeforeField, 1, 0);
+        content.add(new Label("Snooze minutes"), 0, 1);
+        content.add(snoozeField, 1, 1);
+        content.add(activeCheck, 1, 2);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(buttonType -> {
+            if (buttonType != saveType) {
+                return null;
+            }
+            return new ReminderEditInput(minutesBeforeField.getText(), snoozeField.getText(), activeCheck.isSelected());
+        });
+
+        Optional<ReminderEditInput> result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            return;
+        }
+
+        try {
+            ReminderEditInput input = result.get();
+            int minutesBefore = Integer.parseInt(input.minutesBefore.trim());
+            int snoozeMinutes = Integer.parseInt(input.snoozeLength.trim());
+
+            if (minutesBefore < 0) {
+                throw new IllegalArgumentException("Reminder minutes before cannot be negative.");
+            }
+            if (snoozeMinutes <= 0) {
+                throw new IllegalArgumentException("Reminder snooze minutes must be greater than zero.");
+            }
+
+            selectedReminder.setMinutesBefore(minutesBefore);
+            selectedReminder.setSnoozeLength(snoozeMinutes);
+            selectedReminder.setActive(input.active);
+            selectedReminder.setFired(false);
+
+            Event event = findEventById(selectedReminder.getEventId());
+            if (event != null) {
+                selectedReminder.recalculateTrigger(event);
+                selectedReminder.setEventDescription(event.getDescription());
+            }
+
+            CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
+            refreshRemindersArea();
+            if (formStatusLabel != null) {
+                formStatusLabel.setText("Updated reminder #" + selectedReminder.getReminderId());
+            }
+        } catch (NumberFormatException ex) {
+            if (formStatusLabel != null) {
+                formStatusLabel.setText("Reminder values must be valid numbers.");
+            }
+        } catch (IllegalArgumentException ex) {
+            if (formStatusLabel != null) {
+                formStatusLabel.setText(ex.getMessage());
+            }
+        }
     }
 
     private Event findEventById(int eventId) {
@@ -1047,22 +1357,27 @@ public class CalendarFxApp extends Application {
         }
     }
 
-    private static final class QuickAddEventInput {
-        // Captures quick-add dialog values without touching form controls directly.
-        private final String title;
-        private final String description;
-        private final String startTime;
-        private final String endTime;
-        private final boolean recurring;
-        private final boolean autoReminder;
+    private static final class ReminderEditInput {
+        private final String minutesBefore;
+        private final String snoozeLength;
+        private final boolean active;
 
-        private QuickAddEventInput(String title, String description, String startTime, String endTime, boolean recurring, boolean autoReminder) {
-            this.title = title;
-            this.description = description;
-            this.startTime = startTime;
-            this.endTime = endTime;
-            this.recurring = recurring;
-            this.autoReminder = autoReminder;
+        private ReminderEditInput(String minutesBefore, String snoozeLength, boolean active) {
+            this.minutesBefore = minutesBefore;
+            this.snoozeLength = snoozeLength;
+            this.active = active;
+        }
+    }
+
+    private static final class GoalEditInput {
+        private final String name;
+        private final String currentValue;
+        private final String targetValue;
+
+        private GoalEditInput(String name, String currentValue, String targetValue) {
+            this.name = name;
+            this.currentValue = currentValue;
+            this.targetValue = targetValue;
         }
     }
 

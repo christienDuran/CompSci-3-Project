@@ -4,8 +4,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -66,11 +68,8 @@ public class EventUiController {
     public List<Event> displayedEvents = new ArrayList<>();
 
     // Callback consumers for external actions
-    private final Consumer<Void> onRefreshEventList;
-    private final Consumer<LocalDate> onSelectDateForCreation;
     private final Consumer<Void> onRefreshRemindersArea;
     private final Consumer<String> onReloadEventsCache;
-    private final Consumer<List<Event>> onGetDisplayedEvents;
     private final Consumer<LocalDate> onUpdateSelectedDate;
 
     // Helper lambda for building time picker (captured from CalendarFxApp)
@@ -99,11 +98,8 @@ public class EventUiController {
         Supplier<Stage> stageSupplier,
         Supplier<MonthViewController> monthViewControllerSupplier,
         Supplier<DateTimeFormatter> eventTimeFormatterSupplier,
-        Consumer<Void> onRefreshEventList,
-        Consumer<LocalDate> onSelectDateForCreation,
         Consumer<Void> onRefreshRemindersArea,
         Consumer<String> onReloadEventsCache,
-        Consumer<List<Event>> onGetDisplayedEvents,
         Consumer<LocalDate> onUpdateSelectedDate,
         Supplier<ComboBox<String>> timePickerFactory
     ) {
@@ -129,11 +125,8 @@ public class EventUiController {
         this.stageSupplier = stageSupplier;
         this.monthViewControllerSupplier = monthViewControllerSupplier;
         this.eventTimeFormatterSupplier = eventTimeFormatterSupplier;
-        this.onRefreshEventList = onRefreshEventList;
-        this.onSelectDateForCreation = onSelectDateForCreation;
         this.onRefreshRemindersArea = onRefreshRemindersArea;
         this.onReloadEventsCache = onReloadEventsCache;
-        this.onGetDisplayedEvents = onGetDisplayedEvents;
         this.onUpdateSelectedDate = onUpdateSelectedDate;
         this.timePickerFactory = timePickerFactory;
     }
@@ -209,6 +202,142 @@ public class EventUiController {
 
         formStatusLabel.setText("Deleted event #" + selectedEvent.getId());
         refreshEventList();
+    }
+
+    public void handleEditSelectedEvent() {
+        // Edit action uses the current Events-tab list selection.
+        int selectedIndex = eventsListView == null ? -1 : eventsListView.getSelectionModel().getSelectedIndex();
+        handleEditEventAtIndex(selectedIndex);
+    }
+
+    public void handleEditEventAtIndex(int selectedIndex) {
+        UserAccount currentUser = currentUserSupplier.get();
+        if (currentUser == null) {
+            authStatusLabel.setText("No active user session.");
+            return;
+        }
+
+        if (selectedIndex < 0 || selectedIndex >= displayedEvents.size()) {
+            formStatusLabel.setText("Select an event from the Events list first.");
+            return;
+        }
+
+        // Index-based edit keeps all event-edit entry points on the same logic path.
+        Event selectedEvent = displayedEvents.get(selectedIndex);
+        Dialog<EventEditInput> dialog = new Dialog<>();
+        dialog.initOwner(stageSupplier.get());
+        dialog.setTitle("Edit Event");
+        dialog.setHeaderText("Edit event #" + selectedEvent.getId());
+
+        ButtonType saveType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
+
+        TextField editTitleField = new TextField(selectedEvent.getTitle());
+        TextField editDescriptionField = new TextField(selectedEvent.getDescription());
+        DatePicker editDatePicker = new DatePicker(selectedEvent.getDate());
+        ComboBox<String> editStartBox = timePickerFactory.get();
+        ComboBox<String> editEndBox = timePickerFactory.get();
+        editStartBox.setValue(selectedEvent.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
+        editEndBox.setValue(selectedEvent.getEndTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
+        bindEndTimeAfterStart(editStartBox, editEndBox);
+        CheckBox editRecurringCheck = new CheckBox("Recurring");
+        editRecurringCheck.setSelected(selectedEvent.isRecurring());
+
+        GridPane content = new GridPane();
+        content.setHgap(8);
+        content.setVgap(8);
+        content.add(new Label("Title"), 0, 0);
+        content.add(editTitleField, 1, 0);
+        content.add(new Label("Description"), 0, 1);
+        content.add(editDescriptionField, 1, 1);
+        content.add(new Label("Date"), 0, 2);
+        content.add(editDatePicker, 1, 2);
+        content.add(new Label("Start"), 0, 3);
+        content.add(editStartBox, 1, 3);
+        content.add(new Label("End"), 0, 4);
+        content.add(editEndBox, 1, 4);
+        content.add(editRecurringCheck, 1, 5);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(buttonType -> {
+            if (buttonType != saveType) {
+                return null;
+            }
+            return new EventEditInput(
+                editTitleField.getText(),
+                editDescriptionField.getText(),
+                editDatePicker.getValue(),
+                selectedTimeValue(editStartBox),
+                selectedTimeValue(editEndBox),
+                editRecurringCheck.isSelected()
+            );
+        });
+
+        Optional<EventEditInput> result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            return;
+        }
+
+        try {
+            EventEditInput input = result.get();
+            String normalizedTitle = input.title == null ? "" : input.title.trim();
+            if (normalizedTitle.isBlank()) {
+                throw new IllegalArgumentException("Event title is required.");
+            }
+            if (input.date == null) {
+                throw new IllegalArgumentException("Event date is required.");
+            }
+
+            LocalTime start = parseFlexibleTime(input.startTime);
+            if (start == null) {
+                throw new IllegalArgumentException("Start time must be like 9:00 AM.");
+            }
+            LocalTime end = parseFlexibleTime(input.endTime);
+            if (end == null) {
+                throw new IllegalArgumentException("End time must be like 10:30 AM.");
+            }
+            if (end.isBefore(start)) {
+                throw new IllegalArgumentException("End time cannot be before start time.");
+            }
+
+            selectedEvent.editEvent(
+                normalizedTitle,
+                input.description == null ? "" : input.description.trim(),
+                input.date,
+                start,
+                end,
+                input.recurring
+            );
+            CsvStorage.updateEventForUser(currentUser.getAccountID(), selectedEvent);
+
+            // Keep reminder trigger/description aligned when event timing or description changes.
+            List<Reminder> reminders = remindersSupplier.get();
+            for (Reminder reminder : reminders) {
+                if (reminder.getEventId() != selectedEvent.getId()) {
+                    continue;
+                }
+                reminder.setEventDescription(selectedEvent.getDescription());
+                if (reminder.getMinutesBefore() == 0) {
+                    reminder.setTriggerAt(LocalDateTime.of(selectedEvent.getDate(), selectedEvent.getStartTime()));
+                    reminder.setFired(false);
+                } else {
+                    reminder.recalculateTrigger(selectedEvent);
+                }
+            }
+            CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
+
+            titleField.setText(selectedEvent.getTitle());
+            descriptionField.setText(selectedEvent.getDescription());
+            datePicker.setValue(selectedEvent.getDate());
+            startTimeBox.setValue(selectedEvent.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
+            endTimeBox.setValue(selectedEvent.getEndTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
+            recurringCheck.setSelected(selectedEvent.isRecurring());
+
+            formStatusLabel.setText("Updated event #" + selectedEvent.getId());
+            refreshEventList();
+        } catch (IllegalArgumentException ex) {
+            formStatusLabel.setText(ex.getMessage());
+        }
     }
 
     public void selectDateForEventCreation(LocalDate date) {
@@ -294,7 +423,6 @@ public class EventUiController {
             );
         });
 
-        LocalDate selectedDate = selectedDateSupplier.get();
         Optional<QuickAddEventInput> result = dialog.showAndWait();
         if (result.isEmpty()) {
             return;
@@ -489,6 +617,25 @@ public class EventUiController {
         return max + 1;
     }
 
+    private LocalTime parseFlexibleTime(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        String normalized = raw.trim();
+        try {
+            return LocalTime.parse(normalized);
+        } catch (DateTimeParseException ignored) {
+            // Fall through to 12-hour parsing.
+        }
+
+        try {
+            return LocalTime.parse(normalized.toUpperCase(Locale.ENGLISH), DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH));
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
     private int parseIntOrDefault(String raw, int fallback) {
         try {
             return Integer.parseInt(raw.trim());
@@ -515,6 +662,24 @@ public class EventUiController {
                 // Silently ignore parse errors
             }
         });
+    }
+
+    private static final class EventEditInput {
+        private final String title;
+        private final String description;
+        private final LocalDate date;
+        private final String startTime;
+        private final String endTime;
+        private final boolean recurring;
+
+        private EventEditInput(String title, String description, LocalDate date, String startTime, String endTime, boolean recurring) {
+            this.title = title;
+            this.description = description;
+            this.date = date;
+            this.startTime = startTime;
+            this.endTime = endTime;
+            this.recurring = recurring;
+        }
     }
 
     // Record for quick add dialog input
