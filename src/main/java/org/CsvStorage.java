@@ -33,7 +33,7 @@ public final class CsvStorage {
     // Header line for users.csv.
     private static final String USERS_HEADER = "account_id,username,password";
     // Header line for events.csv.
-    private static final String EVENTS_HEADER = "account_id,event_id,title,description,date,start_time,end_time,recurring";
+    private static final String EVENTS_HEADER = "account_id,event_id,title,description,date,start_time,end_time,recurring,recurrence_pattern";
     // Header line for reminders.csv.
     private static final String REMINDERS_HEADER = "account_id,reminder_id,event_id,event_description,minutes_before,snooze_length,trigger_at,active,fired";
     // Header line for goals.csv.
@@ -207,7 +207,8 @@ public final class CsvStorage {
             + "," + event.getDate()
             + "," + event.getStartTime()
             + "," + event.getEndTime()
-            + "," + event.isRecurring();
+            + "," + event.isRecurring()
+            + "," + event.getRecurrencePattern();
 
         appendLine(EVENTS_PATH, row);
     }
@@ -248,8 +249,11 @@ public final class CsvStorage {
                 LocalTime start = LocalTime.parse(fields.get(5));
                 LocalTime end = LocalTime.parse(fields.get(6));
                 boolean recurring = Boolean.parseBoolean(fields.get(7));
+                String recurrencePattern = fields.size() > 8
+                    ? EventService.normalizeRecurrencePattern(fields.get(8))
+                    : (recurring ? Event.RECURRENCE_WEEKLY : Event.RECURRENCE_NONE);
 
-                events.add(new Event(eventId, title, description, date, start, end, recurring));
+                events.add(new Event(eventId, title, description, date, start, end, recurrencePattern));
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed reading events CSV", e);
@@ -344,7 +348,8 @@ public final class CsvStorage {
                             + "," + updatedEvent.getDate()
                             + "," + updatedEvent.getStartTime()
                             + "," + updatedEvent.getEndTime()
-                            + "," + updatedEvent.isRecurring());
+                            + "," + updatedEvent.isRecurring()
+                            + "," + updatedEvent.getRecurrencePattern());
                         updated = true;
                         continue;
                     }

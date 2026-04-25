@@ -1,6 +1,7 @@
 package org;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -25,6 +26,24 @@ public final class EventService {
                                     String startRaw,
                                     String endRaw,
                                     boolean recurring) {
+        return createEvent(
+            user,
+            title,
+            description,
+            dateRaw,
+            startRaw,
+            endRaw,
+            recurring ? Event.RECURRENCE_WEEKLY : Event.RECURRENCE_NONE
+        );
+    }
+
+    public static Event createEvent(UserAccount user,
+                                    String title,
+                                    String description,
+                                    String dateRaw,
+                                    String startRaw,
+                                    String endRaw,
+                                    String recurrencePattern) {
         if (user == null) {
             throw new IllegalArgumentException("User session is required.");
         }
@@ -60,7 +79,7 @@ public final class EventService {
             throw new IllegalArgumentException("End time cannot be before start time.");
         }
 
-        Event event = new Event(0, normalizedTitle, description == null ? "" : description.trim(), date, start, end, recurring);
+        Event event = new Event(0, normalizedTitle, description == null ? "" : description.trim(), date, start, end, recurrencePattern);
         user.saveEventToCSV(event);
         return event;
     }
@@ -83,8 +102,8 @@ public final class EventService {
             end = readTime(userInput, "End time (h:mm AM/PM): ");
         }
 
-        System.out.println("Is this recurring? (true/false): ");
-        boolean recurring = Boolean.parseBoolean(userInput.nextLine().trim());
+        System.out.println("Recurrence (NONE/DAILY/WEEKLY/MONTHLY): ");
+        String recurrencePattern = normalizeRecurrencePattern(userInput.nextLine());
 
         Event event = createEvent(
             user,
@@ -93,7 +112,7 @@ public final class EventService {
             date.toString(),
             start.toString(),
             end.toString(),
-            recurring
+            recurrencePattern
         );
         System.out.println("Event saved for user " + user.getUsername() + " with event ID " + event.getId());
 
@@ -139,5 +158,113 @@ public final class EventService {
         } catch (DateTimeParseException ignored) {
             return LocalTime.parse(normalized.toUpperCase(Locale.ENGLISH), TIME_12_HOUR);
         }
+    }
+
+    // Recurring events repeat weekly on the same day-of-week starting from the base date.
+    public static boolean occursOn(Event event, LocalDate candidateDate) {
+        if (event == null || candidateDate == null || event.getDate() == null) {
+            return false;
+        }
+
+        LocalDate baseDate = event.getDate();
+        if (candidateDate.equals(baseDate)) {
+            return true;
+        }
+
+        if (candidateDate.isBefore(baseDate)) {
+            return false;
+        }
+
+        String recurrence = normalizeRecurrencePattern(event.getRecurrencePattern());
+        return switch (recurrence) {
+            case Event.RECURRENCE_DAILY -> true;
+            case Event.RECURRENCE_WEEKLY -> candidateDate.getDayOfWeek() == baseDate.getDayOfWeek();
+            case Event.RECURRENCE_MONTHLY -> {
+                int expectedDay = Math.min(baseDate.getDayOfMonth(), candidateDate.lengthOfMonth());
+                yield candidateDate.getDayOfMonth() == expectedDay;
+            }
+            default -> false;
+        };
+    }
+
+    // Lightweight occurrence copy used by calendar/day popups without mutating persisted events.
+    public static Event asOccurrence(Event source, LocalDate occurrenceDate) {
+        if (source == null || occurrenceDate == null) {
+            throw new IllegalArgumentException("Source event and occurrence date are required.");
+        }
+
+        return new Event(
+            source.getId(),
+            source.getTitle(),
+            source.getDescription(),
+            occurrenceDate,
+            source.getStartTime(),
+            source.getEndTime(),
+            source.getRecurrencePattern()
+        );
+    }
+
+    public static LocalDateTime nextOccurrenceStartOnOrAfter(Event event, LocalDateTime threshold) {
+        if (event == null || threshold == null || event.getDate() == null || event.getStartTime() == null) {
+            return null;
+        }
+
+        LocalDate baseDate = event.getDate();
+        LocalTime startTime = event.getStartTime();
+        LocalDate candidateDate = threshold.toLocalDate();
+        LocalDateTime baseStart = LocalDateTime.of(baseDate, startTime);
+
+        String recurrence = normalizeRecurrencePattern(event.getRecurrencePattern());
+        if (Event.RECURRENCE_NONE.equals(recurrence)) {
+            return baseStart.isBefore(threshold) ? null : baseStart;
+        }
+
+        if (candidateDate.isBefore(baseDate)) {
+            candidateDate = baseDate;
+        }
+
+        if (Event.RECURRENCE_DAILY.equals(recurrence)) {
+            LocalDateTime candidateStart = LocalDateTime.of(candidateDate, startTime);
+            if (candidateStart.isBefore(threshold)) {
+                candidateStart = candidateStart.plusDays(1);
+            }
+            return candidateStart;
+        }
+
+        if (Event.RECURRENCE_WEEKLY.equals(recurrence)) {
+            int offset = (baseDate.getDayOfWeek().getValue() - candidateDate.getDayOfWeek().getValue() + 7) % 7;
+            LocalDate weeklyDate = candidateDate.plusDays(offset);
+            LocalDateTime weeklyStart = LocalDateTime.of(weeklyDate, startTime);
+            if (weeklyStart.isBefore(threshold)) {
+                weeklyStart = weeklyStart.plusWeeks(1);
+            }
+            return weeklyStart;
+        }
+
+        // Monthly recurrence keeps the base day-of-month when possible, otherwise uses month end.
+        LocalDate monthCursor = LocalDate.of(candidateDate.getYear(), candidateDate.getMonth(), 1);
+        if (monthCursor.isBefore(LocalDate.of(baseDate.getYear(), baseDate.getMonth(), 1))) {
+            monthCursor = LocalDate.of(baseDate.getYear(), baseDate.getMonth(), 1);
+        }
+
+        while (true) {
+            int day = Math.min(baseDate.getDayOfMonth(), monthCursor.lengthOfMonth());
+            LocalDate occurrenceDate = monthCursor.withDayOfMonth(day);
+            if (!occurrenceDate.isBefore(baseDate)) {
+                LocalDateTime occurrenceStart = LocalDateTime.of(occurrenceDate, startTime);
+                if (!occurrenceStart.isBefore(threshold)) {
+                    return occurrenceStart;
+                }
+            }
+            monthCursor = monthCursor.plusMonths(1).withDayOfMonth(1);
+        }
+    }
+
+    public static String normalizeRecurrencePattern(String recurrencePattern) {
+        String normalized = recurrencePattern == null ? "" : recurrencePattern.trim().toUpperCase(Locale.ENGLISH);
+        return switch (normalized) {
+            case Event.RECURRENCE_DAILY, Event.RECURRENCE_WEEKLY, Event.RECURRENCE_MONTHLY -> normalized;
+            default -> Event.RECURRENCE_NONE;
+        };
     }
 }

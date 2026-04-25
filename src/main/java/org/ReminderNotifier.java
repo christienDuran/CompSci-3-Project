@@ -86,17 +86,22 @@ public class ReminderNotifier {
                 continue;
             }
 
-            reminder.setFired(true);
-            CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
-
             Event event = eventResolver.apply(reminder.getEventId());
-            showReminderNotification(reminder, event);
+            LocalDateTime firedTrigger = reminder.getTriggerAt();
+            if (event != null && event.isRecurring()) {
+                reminder.recalculateTrigger(event, now.plusMinutes(1));
+            } else {
+                reminder.setFired(true);
+            }
+
+            CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
+            showReminderNotification(reminder, event, firedTrigger);
             onReminderStateChanged.run();
             break;
         }
     }
 
-    private void showReminderNotification(Reminder reminder, Event event) {
+    private void showReminderNotification(Reminder reminder, Event event, LocalDateTime firedTrigger) {
         String title = (event == null || event.getTitle() == null || event.getTitle().isBlank())
             ? "Untitled Event"
             : event.getTitle();
@@ -113,7 +118,7 @@ public class ReminderNotifier {
         Label headerLabel = new Label("EVENT DUE NOW: " + title);
         headerLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #991b1b;");
 
-        Label messageLabel = new Label(buildReminderMessage(reminder, event));
+        Label messageLabel = new Label(buildReminderMessage(reminder, event, firedTrigger));
         messageLabel.setWrapText(true);
         messageLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #334155;");
 
@@ -157,10 +162,13 @@ public class ReminderNotifier {
         notificationStage.show();
     }
 
-    private String buildReminderMessage(Reminder reminder, Event event) {
+    private String buildReminderMessage(Reminder reminder, Event event, LocalDateTime firedTrigger) {
         StringBuilder sb = new StringBuilder();
         sb.append("Event ID: ").append(reminder.getEventId()).append("\n");
         sb.append("Minutes before: ").append(reminder.getMinutesBefore()).append("\n");
+        if (firedTrigger != null) {
+            sb.append("Triggered at: ").append(firedTrigger.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append("\n");
+        }
         sb.append("Action required: Dismiss this notification when acknowledged.\n");
 
         if (event != null) {

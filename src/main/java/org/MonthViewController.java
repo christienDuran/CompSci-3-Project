@@ -149,13 +149,18 @@ public class MonthViewController {
         }
 
         Map<LocalDate, List<Event>> eventsByDate = new HashMap<>();
+        LocalDate firstOfMonth = visibleMonth.atDay(1);
+        LocalDate lastOfMonth = visibleMonth.atEndOfMonth();
         if (currentUserSupplier.get() != null) {
             for (Event event : allEventsSupplier.get()) {
-                eventsByDate.computeIfAbsent(event.getDate(), k -> new ArrayList<>()).add(event);
+                for (LocalDate date = firstOfMonth; !date.isAfter(lastOfMonth); date = date.plusDays(1)) {
+                    if (EventService.occursOn(event, date)) {
+                        eventsByDate.computeIfAbsent(date, k -> new ArrayList<>())
+                            .add(EventService.asOccurrence(event, date));
+                    }
+                }
             }
         }
-
-        LocalDate firstOfMonth = visibleMonth.atDay(1);
         int firstColumn = toSundayIndex(firstOfMonth.getDayOfWeek());
         int daysInMonth = visibleMonth.lengthOfMonth();
 

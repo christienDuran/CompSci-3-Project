@@ -62,6 +62,10 @@ public class Reminder {
      * Also refreshes the stored event description so alert text stays current.
      */
     public void recalculateTrigger(Event event) {
+        recalculateTrigger(event, LocalDateTime.now());
+    }
+
+    public void recalculateTrigger(Event event, LocalDateTime referenceTime) {
         if (event == null) {
             throw new IllegalArgumentException("event cannot be null.");
         }
@@ -69,7 +73,18 @@ public class Reminder {
             throw new IllegalStateException("Event must have a date and start time.");
         }
 
-        this.triggerAt = LocalDateTime.of(event.getDate(), event.getStartTime()).minusMinutes(minutesBefore);
+        LocalDateTime anchor = referenceTime == null ? LocalDateTime.now() : referenceTime;
+        LocalDateTime threshold = anchor.plusMinutes(minutesBefore);
+        LocalDateTime occurrenceStart = EventService.nextOccurrenceStartOnOrAfter(event, threshold);
+
+        if (occurrenceStart == null) {
+            this.triggerAt = null;
+            this.fired = true;
+            this.eventDescription = (event.getDescription() == null) ? "" : event.getDescription();
+            return;
+        }
+
+        this.triggerAt = occurrenceStart.minusMinutes(minutesBefore);
         this.eventDescription = (event.getDescription() == null) ? "" : event.getDescription();
         this.fired = false;
     }

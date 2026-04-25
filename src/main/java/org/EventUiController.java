@@ -1,7 +1,6 @@
 package org;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -44,7 +43,7 @@ public class EventUiController {
     private final DatePicker datePicker;
     private final ComboBox<String> startTimeBox;
     private final ComboBox<String> endTimeBox;
-    private final CheckBox recurringCheck;
+    private final ComboBox<String> recurrencePatternBox;
     private final CheckBox autoReminderCheck;
     private final CheckBox reminderCheck;
     private final TextField reminderMinutesField;
@@ -81,7 +80,7 @@ public class EventUiController {
         DatePicker datePicker,
         ComboBox<String> startTimeBox,
         ComboBox<String> endTimeBox,
-        CheckBox recurringCheck,
+        ComboBox<String> recurrencePatternBox,
         CheckBox autoReminderCheck,
         CheckBox reminderCheck,
         TextField reminderMinutesField,
@@ -108,7 +107,7 @@ public class EventUiController {
         this.datePicker = datePicker;
         this.startTimeBox = startTimeBox;
         this.endTimeBox = endTimeBox;
-        this.recurringCheck = recurringCheck;
+        this.recurrencePatternBox = recurrencePatternBox;
         this.autoReminderCheck = autoReminderCheck;
         this.reminderCheck = reminderCheck;
         this.reminderMinutesField = reminderMinutesField;
@@ -146,7 +145,7 @@ public class EventUiController {
                 datePicker.getValue() == null ? "" : datePicker.getValue().toString(),
                 selectedTimeValue(startTimeBox),
                 selectedTimeValue(endTimeBox),
-                recurringCheck.isSelected()
+                selectedRecurrencePattern()
             );
 
             // Automatic reminder is optional and can be toggled per event.
@@ -240,8 +239,9 @@ public class EventUiController {
         editStartBox.setValue(selectedEvent.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
         editEndBox.setValue(selectedEvent.getEndTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
         bindEndTimeAfterStart(editStartBox, editEndBox);
-        CheckBox editRecurringCheck = new CheckBox("Recurring");
-        editRecurringCheck.setSelected(selectedEvent.isRecurring());
+        ComboBox<String> editRecurrenceBox = new ComboBox<>();
+        editRecurrenceBox.getItems().addAll(Event.RECURRENCE_NONE, Event.RECURRENCE_DAILY, Event.RECURRENCE_WEEKLY, Event.RECURRENCE_MONTHLY);
+        editRecurrenceBox.setValue(EventService.normalizeRecurrencePattern(selectedEvent.getRecurrencePattern()));
 
         GridPane content = new GridPane();
         content.setHgap(8);
@@ -256,7 +256,8 @@ public class EventUiController {
         content.add(editStartBox, 1, 3);
         content.add(new Label("End"), 0, 4);
         content.add(editEndBox, 1, 4);
-        content.add(editRecurringCheck, 1, 5);
+        content.add(new Label("Recurrence"), 0, 5);
+        content.add(editRecurrenceBox, 1, 5);
         dialog.getDialogPane().setContent(content);
 
         dialog.setResultConverter(buttonType -> {
@@ -269,7 +270,7 @@ public class EventUiController {
                 editDatePicker.getValue(),
                 selectedTimeValue(editStartBox),
                 selectedTimeValue(editEndBox),
-                editRecurringCheck.isSelected()
+                editRecurrenceBox.getValue()
             );
         });
 
@@ -306,7 +307,7 @@ public class EventUiController {
                 input.date,
                 start,
                 end,
-                input.recurring
+                input.recurrencePattern
             );
             CsvStorage.updateEventForUser(currentUser.getAccountID(), selectedEvent);
 
@@ -317,12 +318,7 @@ public class EventUiController {
                     continue;
                 }
                 reminder.setEventDescription(selectedEvent.getDescription());
-                if (reminder.getMinutesBefore() == 0) {
-                    reminder.setTriggerAt(LocalDateTime.of(selectedEvent.getDate(), selectedEvent.getStartTime()));
-                    reminder.setFired(false);
-                } else {
-                    reminder.recalculateTrigger(selectedEvent);
-                }
+                reminder.recalculateTrigger(selectedEvent);
             }
             CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
 
@@ -331,7 +327,9 @@ public class EventUiController {
             datePicker.setValue(selectedEvent.getDate());
             startTimeBox.setValue(selectedEvent.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
             endTimeBox.setValue(selectedEvent.getEndTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)));
-            recurringCheck.setSelected(selectedEvent.isRecurring());
+            if (recurrencePatternBox != null) {
+                recurrencePatternBox.setValue(EventService.normalizeRecurrencePattern(selectedEvent.getRecurrencePattern()));
+            }
 
             formStatusLabel.setText("Updated event #" + selectedEvent.getId());
             refreshEventList();
@@ -383,8 +381,9 @@ public class EventUiController {
         quickEndBox.setValue(defaultEnd.isBlank() ? "10:00 AM" : defaultEnd);
         bindEndTimeAfterStart(quickStartBox, quickEndBox);
 
-        CheckBox quickRecurringCheck = new CheckBox("Recurring");
-        quickRecurringCheck.setSelected(recurringCheck != null && recurringCheck.isSelected());
+        ComboBox<String> quickRecurrenceBox = new ComboBox<>();
+        quickRecurrenceBox.getItems().addAll(Event.RECURRENCE_NONE, Event.RECURRENCE_DAILY, Event.RECURRENCE_WEEKLY, Event.RECURRENCE_MONTHLY);
+        quickRecurrenceBox.setValue(selectedRecurrencePattern());
         // Inherit current reminder preference but still allow one-off override.
         CheckBox quickAutoReminderCheck = new CheckBox("Automatic reminder at start time");
         quickAutoReminderCheck.setSelected(autoReminderCheck == null || autoReminderCheck.isSelected());
@@ -400,7 +399,8 @@ public class EventUiController {
         content.add(quickStartBox, 1, 2);
         content.add(new Label("End"), 0, 3);
         content.add(quickEndBox, 1, 3);
-        content.add(quickRecurringCheck, 1, 4);
+        content.add(new Label("Recurrence"), 0, 4);
+        content.add(quickRecurrenceBox, 1, 4);
         content.add(quickAutoReminderCheck, 1, 5);
 
         dialog.getDialogPane().setContent(content);
@@ -418,7 +418,7 @@ public class EventUiController {
                 description,
                 selectedTimeValue(quickStartBox),
                 selectedTimeValue(quickEndBox),
-                quickRecurringCheck.isSelected(),
+                quickRecurrenceBox.getValue(),
                 quickAutoReminderCheck.isSelected()
             );
         });
@@ -437,7 +437,7 @@ public class EventUiController {
                 date.toString(),
                 input.startTime,
                 input.endTime,
-                input.recurring
+                input.recurrencePattern
             );
 
             if (input.autoReminder) {
@@ -470,11 +470,16 @@ public class EventUiController {
     public void showEventDetails(Event event) {
         // This popup is the detailed event view opened from a title button or the day list.
         DateTimeFormatter fmt = eventTimeFormatterSupplier.get();
+        LocalDate displayDate = event.getDate();
+        LocalDate selectedDate = selectedDateSupplier.get();
+        if (selectedDate != null && EventService.occursOn(event, selectedDate)) {
+            displayDate = selectedDate;
+        }
         String details = "Title: " + event.getTitle() + "\n"
             + "Description: " + event.getDescription() + "\n"
-            + "Date: " + event.getDate() + "\n"
+            + "Date: " + displayDate + "\n"
             + "Time: " + event.getStartTime().format(fmt) + " - " + event.getEndTime().format(fmt) + "\n"
-            + "Recurring: " + event.isRecurring();
+            + "Recurrence: " + event.recurrenceLabel();
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Event Details");
@@ -525,7 +530,7 @@ public class EventUiController {
             + event.getTitle() + " | "
             + event.getStartTime().format(fmt) + " - "
             + event.getEndTime().format(fmt)
-            + (event.isRecurring() ? " | recurring" : "");
+            + (event.isRecurring() ? " | " + event.recurrenceLabel() : "");
     }
 
     public void refreshEventList() {
@@ -555,13 +560,18 @@ public class EventUiController {
             eventsListView.getItems().add(selectedDate == null ? "No events yet." : "No events on this date.");
         } else {
             DateTimeFormatter fmt = eventTimeFormatterSupplier.get();
+            LocalDate selectedDateForView = selectedDateSupplier.get();
             for (Event event : events) {
+                LocalDate displayDate = event.getDate();
+                if (selectedDateForView != null && EventService.occursOn(event, selectedDateForView)) {
+                    displayDate = selectedDateForView;
+                }
                 eventsListView.getItems().add("#" + event.getId()
-                    + "  " + event.getDate()
+                    + "  " + displayDate
                     + "  " + event.getStartTime().format(fmt)
                     + " - " + event.getEndTime().format(fmt)
                     + "  " + event.getTitle()
-                    + (event.isRecurring() ? " (recurring)" : ""));
+                    + (event.isRecurring() ? " (" + event.recurrenceLabel() + ")" : ""));
             }
         }
 
@@ -604,8 +614,7 @@ public class EventUiController {
         // Auto reminder at the event start time.
         List<Reminder> reminders = remindersSupplier.get();
         Reminder reminder = new Reminder(nextReminderId(reminders), event.getId(), event.getDescription(), 0, 10);
-        reminder.setTriggerAt(LocalDateTime.of(event.getDate(), event.getStartTime()));
-        reminder.setFired(false);
+        reminder.recalculateTrigger(event);
         reminders.add(reminder);
     }
 
@@ -648,6 +657,13 @@ public class EventUiController {
         return box == null || box.getValue() == null ? "" : box.getValue();
     }
 
+    private String selectedRecurrencePattern() {
+        if (recurrencePatternBox == null || recurrencePatternBox.getValue() == null) {
+            return Event.RECURRENCE_NONE;
+        }
+        return EventService.normalizeRecurrencePattern(recurrencePatternBox.getValue());
+    }
+
     private void bindEndTimeAfterStart(ComboBox<String> startBox, ComboBox<String> endBox) {
         startBox.setOnAction(e -> {
             String startVal = selectedTimeValue(startBox);
@@ -670,18 +686,18 @@ public class EventUiController {
         private final LocalDate date;
         private final String startTime;
         private final String endTime;
-        private final boolean recurring;
+        private final String recurrencePattern;
 
-        private EventEditInput(String title, String description, LocalDate date, String startTime, String endTime, boolean recurring) {
+        private EventEditInput(String title, String description, LocalDate date, String startTime, String endTime, String recurrencePattern) {
             this.title = title;
             this.description = description;
             this.date = date;
             this.startTime = startTime;
             this.endTime = endTime;
-            this.recurring = recurring;
+            this.recurrencePattern = EventService.normalizeRecurrencePattern(recurrencePattern);
         }
     }
 
     // Record for quick add dialog input
-    record QuickAddEventInput(String title, String description, String startTime, String endTime, boolean recurring, boolean autoReminder) {}
+    record QuickAddEventInput(String title, String description, String startTime, String endTime, String recurrencePattern, boolean autoReminder) {}
 }

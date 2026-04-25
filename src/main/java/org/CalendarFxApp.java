@@ -36,6 +36,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -79,7 +80,7 @@ public class CalendarFxApp extends Application {
     private ComboBox<String> themeBox;
     private ComboBox<String> timeFormatBox;
     private CheckBox sidebarToggle;
-    private CheckBox recurringCheck;
+    private ComboBox<String> recurrencePatternBox;
     private CheckBox autoReminderCheck;
     private CheckBox reminderCheck;
     private TextField reminderMinutesField;
@@ -213,7 +214,9 @@ public class CalendarFxApp extends Application {
             settings.changeSideBarOpen(sidebarToggle.isSelected());
             updateResponsiveLayout();
         });
-        recurringCheck = new CheckBox("Recurring");
+        recurrencePatternBox = new ComboBox<>();
+        recurrencePatternBox.getItems().addAll(Event.RECURRENCE_NONE, Event.RECURRENCE_DAILY, Event.RECURRENCE_WEEKLY, Event.RECURRENCE_MONTHLY);
+        recurrencePatternBox.setValue(Event.RECURRENCE_NONE);
         // Optional baseline reminder that fires at the event start time.
         autoReminderCheck = new CheckBox("Automatic reminder at start time");
         autoReminderCheck.setSelected(true);
@@ -250,7 +253,7 @@ public class CalendarFxApp extends Application {
         goalNameField = new TextField();
         goalCurrentField = new TextField("0");
         goalTargetField = new TextField("100");
-        goalStatusLabel = new Label("Goal feature ready");
+        goalStatusLabel = new Label("");
         goalStatusLabel.getStyleClass().add("status-label");
         formStatusLabel = new Label("Ready");
         formStatusLabel.getStyleClass().add("status-label");
@@ -294,18 +297,9 @@ public class CalendarFxApp extends Application {
         Button saveGoalBtn = new Button("Save Goal");
         saveGoalBtn.setOnAction(e -> handleSaveGoal());
 
-        HBox eventActions = new HBox(8, saveBtn, refreshBtn, editBtn, deleteBtn, logoutBtn);
+        FlowPane eventActions = new FlowPane(8, 8, saveBtn, refreshBtn, editBtn, deleteBtn, logoutBtn);
         eventActions.getStyleClass().add("action-row");
-        HBox.setHgrow(saveBtn, Priority.ALWAYS);
-        HBox.setHgrow(refreshBtn, Priority.ALWAYS);
-        HBox.setHgrow(editBtn, Priority.ALWAYS);
-        HBox.setHgrow(deleteBtn, Priority.ALWAYS);
-        HBox.setHgrow(logoutBtn, Priority.ALWAYS);
-        saveBtn.setMaxWidth(Double.MAX_VALUE);
-        refreshBtn.setMaxWidth(Double.MAX_VALUE);
-        editBtn.setMaxWidth(Double.MAX_VALUE);
-        deleteBtn.setMaxWidth(Double.MAX_VALUE);
-        logoutBtn.setMaxWidth(Double.MAX_VALUE);
+        eventActions.setPrefWrapLength(320);
 
         HBox weatherActions = new HBox(8, findPlacesBtn, fetchWeatherBtn);
         weatherActions.getStyleClass().add("action-row");
@@ -325,7 +319,7 @@ public class CalendarFxApp extends Application {
             new Label("Date"), datePicker,
             new Label("Start"), startTimeBox,
             new Label("End"), endTimeBox,
-            recurringCheck,
+            new Label("Recurrence"), recurrencePatternBox,
             new Label("Event actions"), eventActions
         );
 
@@ -432,7 +426,7 @@ public class CalendarFxApp extends Application {
             datePicker,
             startTimeBox,
             endTimeBox,
-            recurringCheck,
+            recurrencePatternBox,
             autoReminderCheck,
             reminderCheck,
             reminderMinutesField,
@@ -749,6 +743,7 @@ public class CalendarFxApp extends Application {
 
         reminders.clear();
         reminders.addAll(CsvStorage.loadRemindersForUser(currentUser.getAccountID()));
+        synchronizeReminderTriggers();
         goals.clear();
         goals.addAll(CsvStorage.loadGoalsForUser(currentUser.getAccountID()));
 
@@ -1098,6 +1093,33 @@ public class CalendarFxApp extends Application {
         }
     }
 
+    private void synchronizeReminderTriggers() {
+        if (currentUser == null || reminders.isEmpty()) {
+            return;
+        }
+
+        boolean changed = false;
+        for (Reminder reminder : reminders) {
+            Event event = findEventById(reminder.getEventId());
+            if (event == null) {
+                continue;
+            }
+
+            LocalDateTime before = reminder.getTriggerAt();
+            boolean beforeFired = reminder.isFired();
+            reminder.recalculateTrigger(event);
+            if ((before == null && reminder.getTriggerAt() != null)
+                || (before != null && !before.equals(reminder.getTriggerAt()))
+                || beforeFired != reminder.isFired()) {
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            CsvStorage.saveRemindersForUser(currentUser.getAccountID(), reminders);
+        }
+    }
+
     private List<String> buildReminderRows() {
         List<String> rows = new ArrayList<>();
         if (reminders.isEmpty()) {
@@ -1325,7 +1347,7 @@ public class CalendarFxApp extends Application {
         // Filter the side list down to the clicked date when a day is selected.
         List<Event> filtered = new ArrayList<>();
         for (Event event : allEvents) {
-            if (selectedDate.equals(event.getDate())) {
+            if (EventService.occursOn(event, selectedDate)) {
                 filtered.add(event);
             }
         }
