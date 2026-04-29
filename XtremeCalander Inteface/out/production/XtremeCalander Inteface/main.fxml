@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.web.WebView?>
+
+<BorderPane fx:controller="UIController"
+            xmlns:fx="http://javafx.com/fxml">
+
+    <top>
+        <HBox spacing="10" style="-fx-padding: 10; -fx-background-color: #f4f6f8;">
+            <Button text="Calendar" onAction="#showCalendar"/>
+            <Button text="Export" onAction="#handleExport"/>
+            <Button text="Print" onAction="#handlePrint"/>
+        </HBox>
+    </top>
+
+    <center>
+        <WebView fx:id="webView"/>
+    </center>
+
+</BorderPane>

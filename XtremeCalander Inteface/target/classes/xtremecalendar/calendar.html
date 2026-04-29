@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Extreme Calendar</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1e1e2f;
+            color: white;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: #111;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: 15px;
+            transition: transform 0.3s ease;
+            transform: translateX(0);
+            z-index: 10;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #2e2e4d;
+            color: white;
+            cursor: pointer;
+        }
+
+        .sidebar button:hover {
+            background: #3e3e6d;
+        }
+
+        .main {
+            margin-left: 220px;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main.full {
+            margin-left: 0;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #00c896;
+            color: #0f1720;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .status {
+            margin-top: 12px;
+            color: #b8bfd4;
+            font-size: 14px;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .day {
+            background: #2e2e4d;
+            padding: 10px;
+            height: 90px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .day:hover {
+            background: #3e3e6d;
+        }
+
+        .day.selected {
+            border: 2px solid #00c896;
+            box-shadow: 0 0 10px #00c896;
+        }
+
+        .event-dot {
+            width: 8px;
+            height: 8px;
+            background: #00c896;
+            border-radius: 50%;
+            margin-top: 5px;
+        }
+
+        .event-dot.work {
+            background: #ff7675;
+        }
+
+        .event-dot.personal {
+            background: #74b9ff;
+        }
+
+        .event-dot.school {
+            background: #55efc4;
+        }
+
+        .panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2e2e4d;
+            border-radius: 10px;
+        }
+
+        .panel h3 {
+            margin-bottom: 8px;
+        }
+
+        .panel-section {
+            margin-top: 16px;
+        }
+
+        .panel-section.hidden {
+            display: none;
+        }
+
+        .progress {
+            width: 100%;
+            background: #444;
+            border-radius: 5px;
+        }
+
+        .progress-bar {
+            width: 40%;
+            height: 20px;
+            background: #00c896;
+            border-radius: 5px;
+            transition: width 0.25s ease;
+        }
+
+        .event-list-item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar" class="sidebar">
+    <h3>Views</h3>
+    <button onclick="switchView('month')">Month</button>
+    <button onclick="switchView('week')">Week</button>
+    <button onclick="switchView('day')">Day</button>
+
+    <hr>
+
+    <h3>Actions</h3>
+    <button onclick="openPrintPreview()">Preview Print</button>
+    <button onclick="javaController.handlePrintFromJS()">Print</button>
+    <button onclick="javaController.handleExportFromJS()">Export</button>
+</div>
+
+<div id="main" class="main">
+    <div class="topbar">
+        <button onclick="toggleSidebar()">&#9776;</button>
+        <h2>Extreme Calendar</h2>
+    </div>
+
+    <div id="status" class="status">Waiting for Java to load events</div>
+
+    <div id="calendar" class="calendar"></div>
+
+    <div class="panel">
+        <h3>Selected Day</h3>
+        <div id="selectedDay">Click a day</div>
+
+        <div class="panel-section">
+            <h3>Events</h3>
+            <div id="eventList">No events</div>
+        </div>
+
+        <div class="panel-section hidden" id="progressSection">
+            <h3>Progress</h3>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const calendar = document.getElementById("calendar");
+    const eventDays = new Set();
+    let currentView = "month";
+    let selectedDay = null;
+
+    function toggleSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        const main = document.getElementById("main");
+
+        sidebar.classList.toggle("hidden");
+        main.classList.toggle("full");
+    }
+
+    function renderCalendar() {
+        calendar.innerHTML = "";
+
+        if (currentView === "month") {
+            for (let i = 1; i <= 30; i += 1) {
+                createDay(i);
+            }
+        }
+
+        if (currentView === "week") {
+            for (let i = 1; i <= 7; i += 1) {
+                createDay(i);
+            }
+        }
+
+        if (currentView === "day") {
+            createDay(selectedDay || 1);
+        }
+    }
+
+    function createDay(dayNumber) {
+        const day = document.createElement("div");
+        day.className = "day";
+        day.id = "day-" + dayNumber;
+
+        if (dayNumber === selectedDay) {
+            day.classList.add("selected");
+        }
+
+        day.innerHTML = "<strong>" + dayNumber + "</strong>";
+        day.onclick = function () {
+            selectDay(dayNumber);
+        };
+
+        if (eventDays.has(dayNumber)) {
+            const dot = document.createElement("div");
+            dot.className = "event-dot";
+            day.appendChild(dot);
+        }
+
+        calendar.appendChild(day);
+    }
+
+    function selectDay(day) {
+        selectedDay = day;
+        document.getElementById("selectedDay").innerText = "Day " + day;
+        document.getElementById("eventList").innerText = "Loading events...";
+        renderCalendar();
+
+        if (window.javaController && window.javaController.getEventsForDay) {
+            window.javaController.getEventsForDay(day);
+        }
+    }
+
+    function addEvent(day, text, type = "default") {
+        eventDays.add(day);
+        const target = document.getElementById("day-" + day);
+
+        if (target && !target.querySelector(".event-dot")) {
+            const dot = document.createElement("div");
+            dot.className = "event-dot " + type;
+            target.appendChild(dot);
+        }
+    }
+
+    function clearEvents() {
+        eventDays.clear();
+        document.getElementById("eventList").innerText = "No events";
+        document.getElementById("selectedDay").innerText = selectedDay ? "Day " + selectedDay : "Click a day";
+        updateProgress(0);
+        renderCalendar();
+    }
+
+    function showEvents(events) {
+        const container = document.getElementById("eventList");
+        container.innerHTML = "";
+
+        if (!events || events.length === 0 || (events.length === 1 && events[0] === "No events")) {
+            container.innerText = "No events";
+            return;
+        }
+
+        events.forEach(function (eventName) {
+            const div = document.createElement("div");
+            div.className = "event-list-item";
+            div.style.padding = "5px";
+            div.style.borderBottom = "1px solid #444";
+            div.innerText = eventName;
+            container.appendChild(div);
+        });
+    }
+
+    function switchView(view) {
+        currentView = view;
+        renderCalendar();
+        setStatus("Switching to " + view + " view");
+    }
+
+    function openPrintPreview() {
+        const calendarElement = document.getElementById("calendar");
+        const selected = document.getElementById("selectedDay").innerText;
+        const events = document.getElementById("eventList").innerHTML;
+
+        console.log("Calendar HTML:", calendarElement ? calendarElement.outerHTML : "missing");
+
+        if (!calendarElement || !calendarElement.children.length || !calendarElement.innerHTML.trim()) {
+            setStatus("Calendar not ready");
+            return;
+        }
+
+        const calendarHTML = calendarElement.outerHTML;
+        const printWindow = window.open("", "", "width=900,height=700");
+
+        if (!printWindow) {
+            setStatus("Print preview was blocked");
+            return;
+        }
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Print Preview</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        background: white;
+                        color: black;
+                        padding: 20px;
+                    }
+
+                    h1 {
+                        text-align: center;
+                    }
+
+                    .calendar {
+                        display: grid;
+                        grid-template-columns: repeat(7, 1fr);
+                        gap: 5px;
+                    }
+
+                    .day {
+                        border: 1px solid black;
+                        border-radius: 8px;
+                        padding: 10px;
+                        min-height: 80px;
+                    }
+
+                    .day.selected {
+                        border: 2px solid #00a67a;
+                    }
+
+                    .event-dot {
+                        width: 8px;
+                        height: 8px;
+                        background: #00a67a;
+                        border-radius: 50%;
+                        margin-top: 5px;
+                    }
+
+                    .event-list-item {
+                        margin-top: 6px;
+                    }
+
+                    .print-actions {
+                        margin-top: 24px;
+                        text-align: center;
+                    }
+
+                    .print-actions button {
+                        padding: 10px 16px;
+                        font-size: 14px;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Extreme Calendar</h1>
+                <h3>${selected}</h3>
+                ${calendarHTML}
+                <h3>Events</h3>
+                <div>${events}</div>
+                <div class="print-actions">
+                    <button onclick="javaController.printPreview()">Print</button>
+                </div>
+            </body>
+            </html>
+        `);
+
+        printWindow.document.close();
+        setStatus("Opened print preview");
+    }
+
+    function updateProgress(value) {
+        const progressSection = document.getElementById("progressSection");
+        document.getElementById("progressBar").style.width = value + "%";
+
+        if (value > 0) {
+            progressSection.classList.remove("hidden");
+        } else {
+            progressSection.classList.add("hidden");
+        }
+    }
+
+    function showCalendar() {
+        renderCalendar();
+        setStatus("Calendar view active");
+    }
+
+    function setStatus(message) {
+        document.getElementById("status").innerText = message;
+    }
+
+    renderCalendar();
+</script>
+
+</body>
+</html>

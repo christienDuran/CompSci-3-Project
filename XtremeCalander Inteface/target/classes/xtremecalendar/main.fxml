@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.web.WebView?>
+
+<BorderPane fx:controller="xtremecalendar.UIController"
+            xmlns:fx="http://javafx.com/fxml">
+
+    <center>
+        <WebView fx:id="webView"/>
+    </center>
+
+</BorderPane>
