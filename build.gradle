@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation 'de.siegmar:fastcsv:4.2.0'  // this is the FastCSV library
+}
+
+test {
+
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'org.Main'
+}
+
+javafx {
+    version = '21.0.3'
+    modules = ['javafx.controls']
+}
+
+tasks.register('runFx', JavaExec) {
+    group = 'application'
+    description = 'Runs the JavaFX calendar UI.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.CalendarFxApp'
+    def javafxModules = ['javafx.controls']
+    jvmArgs = [
+        '--module-path', classpath.asPath,
+        '--add-modules', javafxModules.join(',')
+    ]
+}
+
+tasks.register('runUi') {
+    group = 'application'
+    description = 'Alias for runFx (kept for compatibility).'
+    dependsOn 'runFx'
+}

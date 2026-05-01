@@ -1,0 +1,1 @@
+account_id,reminder_id,event_id,event_description,minutes_before,snooze_length,trigger_at,active,fired
